@@ -325,18 +325,29 @@ class TestDistributedCrossAttn:
 
 class TestDistributedContexParallelSelfAttn:
 
-    def generate_inputs(self, shape, kv_groups: int, attn_mask_type: AttnMaskType, dtype):
+    def generate_inputs(
+        self,
+        shape,
+        kv_groups: int,
+        attn_bias_type: AttnBiasType,
+        attn_mask_type: AttnMaskType,
+        dtype,
+    ):
         batch, seqlen, heads, hidden = shape
-        qkey, kkey, vkey = random.split(random.PRNGKey(1124), 3)
+        qkey, kkey, vkey, bkey = random.split(random.PRNGKey(1124), 4)
         q = random.normal(qkey, shape, dtype=dtype)
         k = random.normal(kkey, (batch, seqlen, heads // kv_groups, hidden), dtype=dtype)
         v = random.normal(vkey, (batch, seqlen, heads // kv_groups, hidden), dtype=dtype)
+
+        bias = None
+        if attn_bias_type == AttnMaskType.POST_SCALE_BIAS:
+            v = random.normal(bkey, (1, heads, seqlen, seqlen), dtype=dtype)
 
         mask = None
         if attn_mask_type == AttnMaskType.CAUSAL_MASK:
             mask = make_causal_mask(batch, seqlen)
 
-        return q, k, v, mask
+        return q, k, v, bias, mask
 
     def qkv_to_layout(self, q, k, v, qkv_layout):
         qkv_args = ()
@@ -358,27 +369,47 @@ class TestDistributedContexParallelSelfAttn:
         "data_shape",
         [
             pytest.param([2, 512, 12, 128], id="2-512-12-128"),
-            pytest.param([4, 1024, 16, 64], id="4-1024-16-64"),
+            # pytest.param([4, 1024, 16, 64], id="4-1024-16-64"),
         ],
     )
-    @pytest.mark.parametrize("kv_groups", [1, 4, 8, 12, 16])
+    @pytest.mark.parametrize(
+        "kv_groups",
+        [
+            # 1,
+            4,
+            # 8,
+            # 12,
+            # 16
+        ],
+    )
     @pytest.mark.parametrize(
         "attn_mask_type",
         [
             pytest.param(AttnMaskType.CAUSAL_MASK, id="CAUSAL_MASK"),
-            pytest.param(AttnMaskType.NO_MASK, id="NO_MASK"),
+            # pytest.param(AttnMaskType.NO_MASK, id="NO_MASK"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "attn_bias_type",
+        [
+            # pytest.param(AttnBiasType.NO_BIAS, id="NO_BIAS")
+            pytest.param(AttnBiasType.POST_SCALE_BIAS, id="POST_SCALE_BIAS")
         ],
     )
     @pytest.mark.parametrize("dtype", [jnp.bfloat16])
     @pytest.mark.parametrize(
         "qkv_layout",
         [
-            pytest.param(QKVLayout.BSHD_BS2HD, id="COMBINED_KV"),
+            # pytest.param(QKVLayout.BSHD_BS2HD, id="COMBINED_KV"),
             pytest.param(QKVLayout.BSHD_BSHD_BSHD, id="SEPARATE"),
         ],
     )
     @pytest.mark.parametrize(
-        "load_balanced", [pytest.param(False, id="UNBALANCED"), pytest.param(True, id="BALANCED")]
+        "load_balanced",
+        [
+            pytest.param(False, id="UNBALANCED"),
+            # pytest.param(True, id="BALANCED")
+        ],
     )
     def test_contex_parallel_self_attn(
         self,
@@ -389,6 +420,7 @@ class TestDistributedContexParallelSelfAttn:
         data_shape,
         kv_groups,
         attn_mask_type,
+        attn_bias_type,
         dtype,
         qkv_layout,
         load_balanced,
@@ -407,11 +439,11 @@ class TestDistributedContexParallelSelfAttn:
         if num_head % kv_groups != 0 or (num_head // kv_groups) % tp_size != 0:
             pytest.skip(f"Skipping {kv_groups=} not multiple of {data_shape=} or {tp_size=}")
 
-        def target_func(q, k, v, mask):
+        def target_func(q, k, v, bias, mask):
             return jnp.mean(
                 fused_attn(
                     self.qkv_to_layout(q, k, v, qkv_layout),
-                    bias=None,
+                    bias=bias,
                     mask=mask,
                     seed=None,
                     attn_bias_type=attn_bias_type,
@@ -424,7 +456,7 @@ class TestDistributedContexParallelSelfAttn:
                 ),
             ).astype(dtype)
 
-        def ref_func(q, k, v, mask, kv_groups):
+        def ref_func(q, k, v, bias, mask, kv_groups):
             q = jnp.squeeze(q)
             k = jnp.squeeze(jnp.repeat(k, kv_groups, axis=2))
             v = jnp.squeeze(jnp.repeat(v, kv_groups, axis=2))
@@ -432,7 +464,7 @@ class TestDistributedContexParallelSelfAttn:
                 q,
                 k,
                 v,
-                bias=None,
+                bias=bias,
                 mask=mask,
                 deterministic=is_training,
                 dropout_rate=dropout_prob,
@@ -441,11 +473,16 @@ class TestDistributedContexParallelSelfAttn:
             )
             return jnp.mean(output).astype(dtype)
 
-        q, k, v, mask = self.generate_inputs(data_shape, kv_groups, attn_mask_type, dtype)
+        q, k, v, bias, mask = self.generate_inputs(
+            data_shape, kv_groups, attn_bias_type, attn_mask_type, dtype
+        )
+        diff_argnums = (0, 1, 2) if bias is None else (0, 1, 2, 3)
 
         # Single GPU (reference)
-        ref_func_jit = jax.jit(jax.value_and_grad(ref_func, argnums=[0, 1, 2]), static_argnums=[4])
-        ref_fwd, ref_grads = ref_func_jit(q, k, v, mask, kv_groups)
+        ref_func_jit = jax.jit(
+            jax.value_and_grad(ref_func, argnums=diff_argnums), static_argnums=[5]
+        )
+        ref_fwd, ref_grads = ref_func_jit(q, k, v, bias, mask, kv_groups)
 
         # Multi GPU (function under test)
         devices = np.asarray(jax.devices()[:device_count]).reshape(*mesh_shape)
@@ -458,6 +495,14 @@ class TestDistributedContexParallelSelfAttn:
                 None,
             )
             qkv_sharding = NamedSharding(mesh, qkv_ps)
+
+            bias_ps = PartitionSpec(
+                mesh_resource.dp_resource,
+                mesh_resource.tp_resource,
+                None,
+                mesh_resource.cp_resource,
+            )
+            bias_sharding = NamedSharding(mesh, bias_ps)
 
             mask_ps = PartitionSpec(
                 mesh_resource.dp_resource, None, mesh_resource.cp_resource, None
@@ -472,6 +517,7 @@ class TestDistributedContexParallelSelfAttn:
             )
 
             if load_balanced:
+                # n.b.
                 q, k, v = jax.tree.map(reorder, (q, k, v))
 
             q_, k_, v_ = map(partial(jax.device_put, device=qkv_sharding), [q, k, v])

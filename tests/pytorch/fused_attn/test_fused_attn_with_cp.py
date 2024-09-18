@@ -36,13 +36,8 @@ model_configs_flash_attn = {
 }
 
 
-def get_bash_arguments(num_gpus_per_node, **kwargs):
-    args = [
-        "python",
-        "-m",
-        "torch.distributed.launch",
-        "--nproc-per-node=" + str(num_gpus_per_node),
-    ]
+def get_bash_arguments(**kwargs):
+    args = ["python", "-m", "torch.distributed.launch", "--nproc-per-node=4"]
     te_path = os.getenv("TE_PATH", "/opt/transformerengine")
     script_path = os.path.join(te_path, "tests/pytorch/fused_attn/run_fused_attn_with_cp.py")
     args.append(script_path)
@@ -95,21 +90,26 @@ model_configs_fused_attn = {
     "cp_1_2": ModelConfig(2, 12, 12, 128, 4096, 4096, 0.0, "causal", "post_scale_bias"),  # MHA
     "cp_1_3": ModelConfig(2, 12, 12, 128, 4096, 4096, 0.0, "no_mask", "post_scale_bias"),  # MHA
     "cp_1_4": ModelConfig(
-        2, 12, 12, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
+       2, 12, 12, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
     ),  # MHA
     "cp_2_0": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "causal", "no_bias"),  # GQA
     "cp_2_1": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "no_mask", "no_bias"),  # GQA
     "cp_2_2": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "causal", "post_scale_bias"),  # GQA
     "cp_2_3": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "no_mask", "post_scale_bias"),  # GQA
     "cp_2_4": ModelConfig(
-        2, 12, 2, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
+       2, 12, 2, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
     ),  # GQA
 }
 
 
 @pytest.mark.skipif(get_cudnn_version() < (8, 9, 7), reason="cuDNN 8.9.7+ is required.")
 @pytest.mark.skipif(get_device_compute_capability() < (8, 0), reason="CP tests require sm80+.")
-@pytest.mark.parametrize("dtype", ["bf16", "fp16", "fp8"])
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        "bf16", "fp16", "fp8"
+    ],
+)
 @pytest.mark.parametrize("model", model_configs_fused_attn.keys())
 @pytest.mark.parametrize("qkv_format", ["bshd", "sbhd", "thd"])
 @pytest.mark.parametrize("cp_comm_type", ["p2p", "all_gather", "a2a", "a2a+p2p"])

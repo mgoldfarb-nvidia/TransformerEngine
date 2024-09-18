@@ -897,6 +897,58 @@ class FusedAttnBwdPrimitive(BasePrimitive):
 register_primitive(FusedAttnBwdPrimitive)
 
 
+def reorder_causal_load_balancing(tensor, cp_size: int, seq_dim: int, to_contiguous: bool):
+    """Reorders a tensor for load balancing the compute of causal attention."""
+    if cp_size == 1:
+        return tensor
+
+    if cp_size % 2 != 0:
+        raise ValueError(f"{cp_size=} must be a multiple of 2.")
+
+    # Need to ensure we have 2 pairs to swap for balancing between cp ranks
+    if tensor.shape[seq_dim] % (cp_size * 2) != 0:
+        raise ValueError(f"{tensor.shape=} is not a multiple of {cp_size*2=}")
+
+    # [B, S, H, D] -> [B, 2*cp_size, S/2*cp_size, D]
+    # [S, B, H, D] -> [2*cp_size, S/2*cp_size, B, H, D]
+    ori_tensor_shape = tensor.shape
+    tensor = tensor.reshape(
+        (
+            *ori_tensor_shape[:seq_dim],
+            2 * cp_size,
+            ori_tensor_shape[seq_dim] // (2 * cp_size),
+            *ori_tensor_shape[seq_dim + 1 :],
+        )
+    )
+
+    parts = []
+    if not to_contiguous:
+        for cp_rank in range(cp_size):
+            # [B, S, H, D]: [B, 2*cp_size, S/2*cp_size, H, D] -> [B, 2, S/2*cp_size, H, D]
+            # [S, B, H, D]: [2*cp_size, S/2*cp_size, B, H, D] -> [2, S/2*cp_size, B, H, D]
+            index = jnp.array([cp_rank, (2 * cp_size - cp_rank - 1)])
+            parts.append(jnp.take(tensor, index, axis=seq_dim))
+    else:
+        for cp_rank in range(cp_size // 2):
+            # [B, S, H, D]: [B, 2*cp_size, S/2*cp_size, H, D] -> [B, 2, S/2*cp_size, H, D]
+            # [S, B, H, D]: [2*cp_size, S/2*cp_size, B, H, D] -> [2, S/2*cp_size, B, H, D]
+            base = 4 * cp_rank
+            index = jnp.array([base, base + 2])
+            parts.append(jnp.take(tensor, index, axis=seq_dim))
+        for cp_rank in range(cp_size // 2):
+            # [B, S, H, D]: [B, 2*cp_size, S/2*cp_size, H, D] -> [B, 2, S/2*cp_size, H, D]
+            # [S, B, H, D]: [2*cp_size, S/2*cp_size, B, H, D] -> [2, S/2*cp_size, B, H, D]
+            base = 2 * cp_size - 1 - 4 * cp_rank
+            index = jnp.array([base, base - 2])
+            parts.append(jnp.take(tensor, index, axis=seq_dim))
+
+    # [B, S, H, D]: [B, 2*cp_size, S/2*cp_size, H, D]
+    # [S, B, H, D]: [2*cp_size, S/2*cp_size, B, H, D]
+    combined = jnp.stack(parts, axis=seq_dim)
+
+    return combined.reshape(ori_tensor_shape)
+
+
 @dataclass(frozen=True)
 class _FusedAttnCPWithAllGatherHelper:
     """Helper class to assist with running the all-gather strategy for CP attention."""
@@ -914,9 +966,15 @@ class _FusedAttnCPWithAllGatherHelper:
             f" {self.config.qkv_layout}"
         )
 
-        assert (
-            self.config.attn_bias_type == NVTE_Bias_Type.NVTE_NO_BIAS
-        ), f"{header} does not support bias got: {self.config.attn_bias_type}"
+        allowed_bias_types = [
+            NVTE_Bias_Type.NVTE_NO_BIAS,
+            NVTE_Bias_Type.NVTE_PRE_SCALE_BIAS,
+            NVTE_Bias_Type.NVTE_POST_SCALE_BIAS,
+        ]
+        assert self.config.attn_bias_type in allowed_bias_types, (
+            f"{header} only supports bias types:"
+            f" {','.join([str(x) for x in allowed_bias_types])} got: {self.config.attn_bias_type}"
+        )
 
         allowed_masks = [NVTE_Mask_Type.NVTE_NO_MASK, NVTE_Mask_Type.NVTE_CAUSAL_MASK]
         assert self.config.attn_mask_type in allowed_masks, (
@@ -940,9 +998,13 @@ class _FusedAttnCPWithAllGatherHelper:
         """Performs a all-gather of k and v over context parallel ranks."""
 
         def ag(x):
-            return lax_paral_op(
+            x = lax_paral_op(
                 x, lax.all_gather, self.config.cp_axis, mesh=self.mesh, axis=1, tiled=True
             )
+            if self.config.context_parallel_load_balanced:
+                cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
+                x = reorder_causal_load_balancing(x, cp_size, to_contiguous=True)
+            return x
 
         match self.config.qkv_layout:
             case NVTE_QKV_Layout.NVTE_BSHD_BS2HD:
@@ -956,7 +1018,7 @@ class _FusedAttnCPWithAllGatherHelper:
         """Performs a reduce-scatter of dk and dv over context parallel ranks."""
 
         def rs(x):
-            return lax_paral_op(
+            x = lax_paral_op(
                 x,
                 lax.psum_scatter,
                 self.config.cp_axis,
@@ -964,6 +1026,10 @@ class _FusedAttnCPWithAllGatherHelper:
                 scatter_dimension=1,
                 tiled=True,
             )
+            if self.config.context_parallel_load_balanced:
+                cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
+                x = reorder_causal_load_balancing(x, cp_size, to_contiguous=False)
+            return x
 
         match self.config.qkv_layout:
             case NVTE_QKV_Layout.NVTE_BSHD_BS2HD:
@@ -972,6 +1038,39 @@ class _FusedAttnCPWithAllGatherHelper:
                 return rs(dk), rs(dv)
 
         return dk, dv  # fall through
+
+    def all_gather_bias(self, bias):
+        """Performs a all-gather of bias over context parallel ranks."""
+
+        def ag(x):
+            return lax_paral_op(
+                x, lax.all_gather, self.config.cp_axis, mesh=self.mesh, axis=-1, tiled=True
+            )
+
+        match self.config.attn_bias_type:
+            case NVTE_Bias_Type.NVTE_POST_SCALE_BIAS:
+                return ag(bias)
+
+        return bias  # fall through
+
+    def reduce_dbias(self, dbias):
+        """Performs a all-gather of bias over context, data and fsdp parallel ranks."""
+
+        def rs(x):
+            return lax_paral_op(
+                x,
+                lax.psum_scatter,
+                self.config.cp_axis,
+                mesh=self.mesh,
+                scatter_dimension=-1,
+                tiled=True,
+            )
+
+        match self.config.attn_bias_type:
+            case NVTE_Bias_Type.NVTE_POST_SCALE_BIAS:
+                return all_reduce_sum_along_dp_fsdp(rs(dbias), self.mesh)
+
+        return dbias  # fall through
 
     def kv_seqlens_for_rank(self, cp_rank, kv_max_seqlen, kv_seqlen_per_subrank):
         """Returns sequence lengths of KV to use for each sub rank of the given cp_rank.
@@ -1110,9 +1209,10 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
                 return output, softmax_aux, rng_state
 
             k_ag, v_ag = helper.all_gather_kv(k, v)
+            bias_ag = helper.all_gather_bias(bias)
 
             functions = [
-                partial(_cross_attn, idx, q, k_ag, v_ag, bias, q_seqlen, kv_seqlen, seed)
+                partial(_cross_attn, idx, q, k_ag, v_ag, bias_ag, q_seqlen, kv_seqlen, seed)
                 for idx in range(cp_size)
             ]
 
@@ -1229,6 +1329,7 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                 return dq_local, dk_local_pad, dv_local_pad, results[1][3]
 
             k_ag, v_ag = helper.all_gather_kv(k, v)
+            bias_ag = helper.all_gather_bias(bias)
 
             functions = [
                 partial(
@@ -1237,7 +1338,7 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                     q,
                     k_ag,
                     v_ag,
-                    bias,
+                    bias_ag,
                     softmax_aux,
                     rng_state,
                     output,
@@ -1248,8 +1349,9 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                 for idx in range(cp_size)
             ]
 
-            dq, dk_local, dv_local, dbias = lax.switch(cp_rank, functions)
+            dq, dk_local, dv_local, dbias_local = lax.switch(cp_rank, functions)
             dk, dv = helper.reduce_scatter_dkv(dk_local, dv_local)
+            dbias = helper.reduce_dbias(dbias_local)
 
             return dq, dk, dv, dbias
 
