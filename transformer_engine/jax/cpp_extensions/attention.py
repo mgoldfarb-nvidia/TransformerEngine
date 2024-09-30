@@ -1001,9 +1001,9 @@ class _FusedAttnCPWithAllGatherHelper:
             x = lax_paral_op(
                 x, lax.all_gather, self.config.cp_axis, mesh=self.mesh, axis=1, tiled=True
             )
-            if self.config.context_parallel_load_balanced:
-                cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
-                x = reorder_causal_load_balancing(x, cp_size, to_contiguous=True)
+            # if self.config.context_parallel_load_balanced:
+            #    cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
+            #    x = reorder_causal_load_balancing(x, cp_size, to_contiguous=True)
             return x
 
         match self.config.qkv_layout:
@@ -1018,7 +1018,11 @@ class _FusedAttnCPWithAllGatherHelper:
         """Performs a reduce-scatter of dk and dv over context parallel ranks."""
 
         def rs(x):
-            x = lax_paral_op(
+            if self.config.context_parallel_load_balanced:
+                cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
+                x = reorder_causal_load_balancing(x, cp_size, to_contiguous=False)
+
+            return lax_paral_op(
                 x,
                 lax.psum_scatter,
                 self.config.cp_axis,
@@ -1026,10 +1030,6 @@ class _FusedAttnCPWithAllGatherHelper:
                 scatter_dimension=1,
                 tiled=True,
             )
-            if self.config.context_parallel_load_balanced:
-                cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
-                x = reorder_causal_load_balancing(x, cp_size, to_contiguous=False)
-            return x
 
         match self.config.qkv_layout:
             case NVTE_QKV_Layout.NVTE_BSHD_BS2HD:

@@ -335,13 +335,26 @@ class TestDistributedContexParallelSelfAttn:
     ):
         batch, seqlen, heads, hidden = shape
         qkey, kkey, vkey, bkey = random.split(random.PRNGKey(1124), 4)
-        q = random.normal(qkey, shape, dtype=dtype)
-        k = random.normal(kkey, (batch, seqlen, heads // kv_groups, hidden), dtype=dtype)
-        v = random.normal(vkey, (batch, seqlen, heads // kv_groups, hidden), dtype=dtype)
+        r = 40.0
+        q = random.uniform(qkey, shape, dtype=dtype, minval=-1.0 * r, maxval=r)
+        k = random.uniform(
+            kkey,
+            (batch, seqlen, heads // kv_groups, hidden),
+            dtype=dtype,
+            minval=-1.0 * r,
+            maxval=r,
+        )
+        v = random.uniform(
+            vkey,
+            (batch, seqlen, heads // kv_groups, hidden),
+            dtype=dtype,
+            minval=-1.0 * r,
+            maxval=r,
+        )
 
         bias = None
-        if attn_bias_type == AttnMaskType.POST_SCALE_BIAS:
-            v = random.normal(bkey, (1, heads, seqlen, seqlen), dtype=dtype)
+        if attn_bias_type == AttnBiasType.POST_SCALE_BIAS:
+            bias = random.normal(bkey, (1, heads, seqlen, seqlen), dtype=dtype)
 
         mask = None
         if attn_mask_type == AttnMaskType.CAUSAL_MASK:
@@ -385,31 +398,28 @@ class TestDistributedContexParallelSelfAttn:
     @pytest.mark.parametrize(
         "attn_mask_type",
         [
-            pytest.param(AttnMaskType.CAUSAL_MASK, id="CAUSAL_MASK"),
-            # pytest.param(AttnMaskType.NO_MASK, id="NO_MASK"),
+            # pytest.param(AttnMaskType.CAUSAL_MASK, id="CAUSAL_MASK"),
+            pytest.param(AttnMaskType.NO_MASK, id="NO_MASK"),
         ],
     )
     @pytest.mark.parametrize(
         "attn_bias_type",
         [
-            # pytest.param(AttnBiasType.NO_BIAS, id="NO_BIAS")
-            pytest.param(AttnBiasType.POST_SCALE_BIAS, id="POST_SCALE_BIAS")
+            pytest.param(AttnBiasType.NO_BIAS, id="NO_BIAS")
+            # pytest.param(AttnBiasType.POST_SCALE_BIAS, id="POST_SCALE_BIAS")
         ],
     )
     @pytest.mark.parametrize("dtype", [jnp.bfloat16])
     @pytest.mark.parametrize(
         "qkv_layout",
         [
-            # pytest.param(QKVLayout.BSHD_BS2HD, id="COMBINED_KV"),
+            pytest.param(QKVLayout.BSHD_BS2HD, id="COMBINED_KV"),
             pytest.param(QKVLayout.BSHD_BSHD_BSHD, id="SEPARATE"),
         ],
     )
     @pytest.mark.parametrize(
         "load_balanced",
-        [
-            pytest.param(False, id="UNBALANCED"),
-            # pytest.param(True, id="BALANCED")
-        ],
+        [pytest.param(False, id="UNBALANCED"), pytest.param(True, id="BALANCED")],
     )
     def test_contex_parallel_self_attn(
         self,
@@ -522,14 +532,21 @@ class TestDistributedContexParallelSelfAttn:
 
             q_, k_, v_ = map(partial(jax.device_put, device=qkv_sharding), [q, k, v])
             mask_ = jax.device_put(mask, device=mask_sharding)
-
+            bias_ = jax.device_put(bias, device=bias_sharding)
+            print(f"{bias_=}")
             target_func_jit = jax.jit(
-                jax.value_and_grad(target_func, argnums=[0, 1, 2]),
-                in_shardings=[qkv_sharding, qkv_sharding, qkv_sharding, mask_sharding],
+                jax.value_and_grad(target_func, argnums=diff_argnums),
+                in_shardings=[
+                    qkv_sharding,
+                    qkv_sharding,
+                    qkv_sharding,
+                    bias_sharding,
+                    mask_sharding,
+                ],
                 out_shardings=(None, (qkv_sharding, qkv_sharding, qkv_sharding)),
             )
 
-            target_fwd, target_grads = target_func_jit(q_, k_, v_, mask_)
+            target_fwd, target_grads = target_func_jit(q_, k_, v_, bias_, mask_)
 
             if load_balanced:
                 target_dq, target_dk, target_dv = jax.tree.map(inverse_reorder, target_grads[0:3])
@@ -559,6 +576,8 @@ class TestDistributedContexParallelSelfAttn:
                     assert target_grads[i] is None and ref_grads[i] is None
                 else:
                     try:
+                        # print(f"target_grads[{i}] v. ref_grads[{i}]")
+                        # _print_diffs(target_grads[i], ref_grads[i])
                         assert_allclose(target_grads[i], ref_grads[i])
                     except AssertionError as e:
                         has_diffs = True

@@ -363,9 +363,10 @@ class FusedAttnRunner:
         else:
             pytest.fail(f"PyTest attempted to use an unrecognized bias_layout = {self.bias_shape}!")
 
-        self.q = jax.random.uniform(q_key, q_shape, self.dtype, -1.0)
-        self.k = jax.random.uniform(k_key, k_shape, self.dtype, -1.0)
-        self.v = jax.random.uniform(v_key, v_shape, self.dtype, -1.0)
+        r = 40.0
+        self.q = jax.random.uniform(q_key, q_shape, self.dtype, -1.0 * r, r)
+        self.k = jax.random.uniform(k_key, k_shape, self.dtype, -1.0 * r, r)
+        self.v = jax.random.uniform(v_key, v_shape, self.dtype, -1.0 * r, r)
 
         if self.attn_bias_type != AttnBiasType.NO_BIAS:
             if self.bias_shape == BiasShape.BIAS_1HSS:
