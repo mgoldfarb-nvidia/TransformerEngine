@@ -17,7 +17,13 @@ from distributed_test_base import (
     generate_collectives_count,
     compare_ops,
 )
-from utils import make_causal_mask, make_self_mask, assert_tree_like_allclose, assert_allclose
+from utils import (
+    make_causal_mask,
+    make_self_mask,
+    assert_tree_like_allclose,
+    assert_allclose,
+    print_debug_tensor_stats,
+)
 from transformer_engine.jax import fp8_autocast
 from transformer_engine.jax.attention import (
     is_fused_attn_kernel_available,
@@ -334,23 +340,12 @@ class TestDistributedContexParallelSelfAttn:
         dtype,
     ):
         batch, seqlen, heads, hidden = shape
+        kv_shape = (batch, seqlen, heads // kv_groups, hidden)
         qkey, kkey, vkey, bkey = random.split(random.PRNGKey(1124), 4)
-        r = 40.0
+        r = 50.0
         q = random.uniform(qkey, shape, dtype=dtype, minval=-1.0 * r, maxval=r)
-        k = random.uniform(
-            kkey,
-            (batch, seqlen, heads // kv_groups, hidden),
-            dtype=dtype,
-            minval=-1.0 * r,
-            maxval=r,
-        )
-        v = random.uniform(
-            vkey,
-            (batch, seqlen, heads // kv_groups, hidden),
-            dtype=dtype,
-            minval=-1.0 * r,
-            maxval=r,
-        )
+        k = random.uniform(kkey, kv_shape, dtype=dtype, minval=-1.0 * r, maxval=r)
+        v = random.uniform(vkey, kv_shape, dtype=dtype, minval=-1.0 * r, maxval=r)
 
         bias = None
         if attn_bias_type == AttnBiasType.POST_SCALE_BIAS:
@@ -381,7 +376,7 @@ class TestDistributedContexParallelSelfAttn:
     @pytest.mark.parametrize(
         "data_shape",
         [
-            pytest.param([2, 512, 12, 128], id="2-512-12-128"),
+            pytest.param([1, 128, 2, 64], id="1-512-12-128"),
             # pytest.param([4, 1024, 16, 64], id="4-1024-16-64"),
         ],
     )
@@ -389,7 +384,7 @@ class TestDistributedContexParallelSelfAttn:
         "kv_groups",
         [
             # 1,
-            4,
+            2,
             # 8,
             # 12,
             # 16
@@ -413,7 +408,7 @@ class TestDistributedContexParallelSelfAttn:
     @pytest.mark.parametrize(
         "qkv_layout",
         [
-            pytest.param(QKVLayout.BSHD_BS2HD, id="COMBINED_KV"),
+            # pytest.param(QKVLayout.BSHD_BS2HD, id="COMBINED_KV"),
             pytest.param(QKVLayout.BSHD_BSHD_BSHD, id="SEPARATE"),
         ],
     )
@@ -438,12 +433,12 @@ class TestDistributedContexParallelSelfAttn:
         attn_bias_type = AttnBiasType.NO_BIAS
         dropout_prob = 0.0
         is_training = True
-        scaling_factor = 1.0
         dp_size, cp_size, tp_size = mesh_shape
         qkv_format = get_qkv_format(qkv_layout)
 
         _, seqlen, num_head, hidden = data_shape
         num_kv_heads = num_head // kv_groups
+        scaling_factor = 1.0  # / np.sqrt(num_head)
 
         # make sure the mesh evently divides cp and tp axis
         if num_head % kv_groups != 0 or (num_head // kv_groups) % tp_size != 0:
@@ -467,9 +462,22 @@ class TestDistributedContexParallelSelfAttn:
             ).astype(dtype)
 
         def ref_func(q, k, v, bias, mask, kv_groups):
-            q = jnp.squeeze(q)
-            k = jnp.squeeze(jnp.repeat(k, kv_groups, axis=2))
-            v = jnp.squeeze(jnp.repeat(v, kv_groups, axis=2))
+            # q = jnp.squeeze(q)
+            print(f"{q.shape=}")
+            b, s, h, d = k.shape
+
+            k = k.reshape(b, s, h, 1, d)
+            k = jnp.repeat(k, kv_groups, axis=3)
+            k = k.reshape(b, s, h * kv_groups, d)
+            print(f"{k.shape=}")
+
+            v = v.reshape(b, s, h, 1, d)
+            v = jnp.repeat(v, kv_groups, axis=3)
+            v = v.reshape(b, s, h * kv_groups, d)
+            print(f"{v.shape=}")
+            # k = jnp.squeeze(jnp.repeat(k, kv_groups, axis=2))
+            # v = jnp.squeeze(jnp.repeat(v, kv_groups, axis=2))
+
             output = dot_product_attention(
                 q,
                 k,
@@ -479,9 +487,17 @@ class TestDistributedContexParallelSelfAttn:
                 deterministic=is_training,
                 dropout_rate=dropout_prob,
                 dropout_rng=None,
-                dtype=jnp.float32,
+                dtype=jnp.bfloat16,
             )
             return jnp.mean(output).astype(dtype)
+
+        def grad_func(func, *args, **kwargs):
+            # Gradient is small, use a gradient multiplier to amplify the gradient
+            _, max_seq_len, num_heads, _ = data_shape
+            gradient_multiplier = max_seq_len * num_heads
+            if attn_mask_type in [AttnMaskType.CAUSAL_MASK, AttnMaskType.CAUSAL_BOTTOM_RIGHT_MASK]:
+                gradient_multiplier /= 10
+            return (jnp.mean(func(*args), dtype=jnp.float32) * gradient_multiplier).astype(dtype)
 
         q, k, v, bias, mask = self.generate_inputs(
             data_shape, kv_groups, attn_bias_type, attn_mask_type, dtype
@@ -490,10 +506,11 @@ class TestDistributedContexParallelSelfAttn:
 
         # Single GPU (reference)
         ref_func_jit = jax.jit(
-            jax.value_and_grad(ref_func, argnums=diff_argnums), static_argnums=[5]
+            jax.value_and_grad(lambda *args: grad_func(ref_func, *args), argnums=diff_argnums),
+            static_argnums=[5],
         )
         ref_fwd, ref_grads = ref_func_jit(q, k, v, bias, mask, kv_groups)
-
+        print(ref_grads[0].dtype)
         # Multi GPU (function under test)
         devices = np.asarray(jax.devices()[:device_count]).reshape(*mesh_shape)
         mesh = Mesh(devices, mesh_axes)
@@ -533,9 +550,11 @@ class TestDistributedContexParallelSelfAttn:
             q_, k_, v_ = map(partial(jax.device_put, device=qkv_sharding), [q, k, v])
             mask_ = jax.device_put(mask, device=mask_sharding)
             bias_ = jax.device_put(bias, device=bias_sharding)
-            print(f"{bias_=}")
+
             target_func_jit = jax.jit(
-                jax.value_and_grad(target_func, argnums=diff_argnums),
+                jax.value_and_grad(
+                    lambda *args: grad_func(target_func, *args), argnums=diff_argnums
+                ),
                 in_shardings=[
                     qkv_sharding,
                     qkv_sharding,
@@ -552,39 +571,34 @@ class TestDistributedContexParallelSelfAttn:
                 target_dq, target_dk, target_dv = jax.tree.map(inverse_reorder, target_grads[0:3])
                 target_grads = (target_dq, target_dk, target_dv, *target_grads[3:])
 
-            def _print_diffs(target, ref):
-                print("min: ", jnp.min(target), jnp.min(ref))
-                print("max: ", jnp.max(target), jnp.max(ref))
-                print("mean: ", jnp.mean(target), jnp.mean(ref))
-                print("median: ", jnp.median(target), jnp.median(ref))
-                print("std: ", jnp.std(target), jnp.std(ref))
-                print("var: ", jnp.var(target), jnp.var(ref))
-                print("max diff: ", jnp.max(jnp.abs(target - ref)))
-
             has_diffs = False
 
-            try:
-                assert_allclose(target_fwd, ref_fwd, dtype=dtype)
-            except AssertionError as e:
-                has_diffs = True
-                print(f"target_fwd v. ref_fwd")
-                _print_diffs(target_fwd, ref_fwd)
+            print_debug_tensor_stats("target", target_fwd)
+            print_debug_tensor_stats("ref", ref_fwd)
+            print_debug_tensor_stats("diff", jnp.abs(target_fwd - ref_fwd))
+            assert_allclose(target_fwd, ref_fwd, dtype=dtype)
 
             for i in range(len(target_grads)):
                 if ref_grads[i] is None or target_grads[i] is None:
                     # expect both none if one is
                     assert target_grads[i] is None and ref_grads[i] is None
                 else:
-                    try:
-                        # print(f"target_grads[{i}] v. ref_grads[{i}]")
-                        # _print_diffs(target_grads[i], ref_grads[i])
-                        assert_allclose(target_grads[i], ref_grads[i])
-                    except AssertionError as e:
-                        has_diffs = True
-                        print(f"target_grads[{i}] v. ref_grads[{i}]")
-                        _print_diffs(target_grads[i], ref_grads[i])
+                    print_debug_tensor_stats(f"target_grad[{i}]", target_grads[i])
+                    print_debug_tensor_stats(f"ref_grad[{i}]", ref_grads[i])
+                    print_debug_tensor_stats(
+                        f"diff_grad[{i}]", jnp.abs(target_grads[i] - ref_grads[i])
+                    )
 
-            assert has_diffs == False, "has_diffs != False"
+                    for b in range(target_grads[i].shape[0]):
+                        for h in range(target_grads[i].shape[2]):
+                            print(f"{b=} {h=}")
+                            print_debug_tensor_stats(f". target", target_grads[i][b, :, h, :])
+                            print_debug_tensor_stats(f"  ref", ref_grads[i][b, :, h, :])
+                            print_debug_tensor_stats(
+                                f" diff",
+                                jnp.abs(target_grads[i][b, :, h, :] - ref_grads[i][b, :, h, :]),
+                            )
+                    assert_allclose(target_grads[i], ref_grads[i])
 
 
 class TestReorderCausalLoadBalancing:

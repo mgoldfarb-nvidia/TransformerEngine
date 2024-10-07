@@ -178,13 +178,13 @@ def _obtain_batch_and_max_seqlen(qkv, qkv_layout):
 def reorder_causal_load_balancing(tensor, cp_size: int, tensor_format: QKVFormat):
     """Reorders a tensor for load balancing the compute of causal attention."""
     seq_dim = get_seq_dim_for_qkv_format(tensor_format)
-    return tex.reorder_causal_load_balancing(tensor, cp_size, tensor_format, False)
+    return tex.attention.reorder_causal_load_balancing(tensor, cp_size, seq_dim, False)
 
 
 def inverse_reorder_causal_load_balancing(tensor, cp_size: int, tensor_format: QKVFormat):
     """Inverse operation of `reorder_causal_load_balancing`."""
     seq_dim = get_seq_dim_for_qkv_format(tensor_format)
-    return tex.reorder_causal_load_balancing(tensor, cp_size, tensor_format, True)
+    return tex.attention.reorder_causal_load_balancing(tensor, cp_size, seq_dim, True)
 
 
 def fused_attn(

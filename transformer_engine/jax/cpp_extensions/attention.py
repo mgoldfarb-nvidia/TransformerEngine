@@ -1001,9 +1001,10 @@ class _FusedAttnCPWithAllGatherHelper:
             x = lax_paral_op(
                 x, lax.all_gather, self.config.cp_axis, mesh=self.mesh, axis=1, tiled=True
             )
-            # if self.config.context_parallel_load_balanced:
-            #    cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
-            #    x = reorder_causal_load_balancing(x, cp_size, to_contiguous=True)
+            if self.config.context_parallel_load_balanced:
+                print("fix")
+                cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
+                x = reorder_causal_load_balancing(x, cp_size, 1, to_contiguous=True)
             return x
 
         match self.config.qkv_layout:
@@ -1020,7 +1021,7 @@ class _FusedAttnCPWithAllGatherHelper:
         def rs(x):
             if self.config.context_parallel_load_balanced:
                 cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
-                x = reorder_causal_load_balancing(x, cp_size, to_contiguous=False)
+                x = reorder_causal_load_balancing(x, cp_size, 1, to_contiguous=False)
 
             return lax_paral_op(
                 x,
