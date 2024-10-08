@@ -3267,16 +3267,13 @@ class AttnFuncWithCPAndKVAllGather(torch.autograd.Function):
         k, v = [x.movedim(seq_dim, 0).contiguous() for x in [k, v]]
 
         # [s, b, np, hn] -> [cp, s, b, np, hn]
-        print(f"{k.shape=}")
         k_ag, _ = gather_along_first_dim(k, cp_group)
         v_ag, _ = gather_along_first_dim(v, cp_group)
-        print(f"{k_ag.shape=}")
 
         # [cp, s, b, np, hn] -> [cp*2, s//2, b, np, hn]
         k_ag = k_ag.view(2 * cp_size, k.shape[0] // 2, *k.shape[1:])
         v_ag = v_ag.view(2 * cp_size, v.shape[0] // 2, *v.shape[1:])
         chunk_ids_for_kv_ag = get_seq_chunk_ids_for_reordering(cp_size, k.device, True)
-        print(f"{rank=} {cp_group=} {chunk_ids_for_kv_ag=}")
         k_ag = torch.index_select(k_ag, dim=0, index=chunk_ids_for_kv_ag)
         v_ag = torch.index_select(v_ag, dim=0, index=chunk_ids_for_kv_ag)
         # [cp*2, s//2, b, np, hn] -> [cp*s, b, np, hn]
@@ -3312,7 +3309,6 @@ class AttnFuncWithCPAndKVAllGather(torch.autograd.Function):
                             causal,
                         )
                     )
-                    print(f"{rank=} {i=} {kv_seq_range_per_step[i]=} {local_seq_chunk_ids[i]=}")
                     seq_start_idx, seq_end_idx = (
                         kv_seq_range_per_step[i][0],
                         kv_seq_range_per_step[i][1],

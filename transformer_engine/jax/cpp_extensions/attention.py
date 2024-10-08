@@ -529,6 +529,7 @@ class FusedAttnFwdPrimitive(BasePrimitive):
 
     @staticmethod
     def partition(config, mesh, arg_infos, result_infos):
+        assert False
         out_sharding = result_infos[0].sharding
         softmax_aux_sharding = result_infos[1].sharding
         rng_state_sharding = seed_sharding = NamedSharding(
@@ -845,6 +846,7 @@ class FusedAttnBwdPrimitive(BasePrimitive):
 
     @staticmethod
     def partition(config, mesh, arg_infos, result_infos):
+        raise ValueError("Oops what")
         del result_infos
         q_spec = get_padded_spec(arg_infos[0])
         k_spec = get_padded_spec(arg_infos[1])
@@ -1002,7 +1004,6 @@ class _FusedAttnCPWithAllGatherHelper:
                 x, lax.all_gather, self.config.cp_axis, mesh=self.mesh, axis=1, tiled=True
             )
             if self.config.context_parallel_load_balanced:
-                print("fix")
                 cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
                 x = reorder_causal_load_balancing(x, cp_size, 1, to_contiguous=True)
             return x
@@ -1157,7 +1158,6 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
         out_shardings = (out_sharding, softmax_aux_sharding, rng_state_sharding)
 
         def impl(q, k, v, bias, q_seqlen, kv_seqlen, q_seq_offsets, k_seq_offsets, seed):
-
             cp_size = get_mesh_axis_size(config.cp_axis, mesh)
             cp_rank = get_mesh_axis_rank(config.cp_axis, mesh)
 
@@ -1237,6 +1237,7 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
     def partition(config, mesh, arg_infos, result_infos):
         # Call base implementation for non-context parallel mesh to avoid unecessary work.
         is_context_parallel = get_mesh_axis_size(config.cp_axis, mesh) > 1
+        raise ValueError("Oops")
         if not is_context_parallel:
             return FusedAttnBwdPrimitive.partition(config, mesh, arg_infos, result_infos)
 

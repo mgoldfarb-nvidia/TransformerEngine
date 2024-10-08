@@ -90,14 +90,14 @@ model_configs_fused_attn = {
     "cp_1_2": ModelConfig(2, 12, 12, 128, 4096, 4096, 0.0, "causal", "post_scale_bias"),  # MHA
     "cp_1_3": ModelConfig(2, 12, 12, 128, 4096, 4096, 0.0, "no_mask", "post_scale_bias"),  # MHA
     "cp_1_4": ModelConfig(
-       2, 12, 12, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
+        2, 12, 12, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
     ),  # MHA
     "cp_2_0": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "causal", "no_bias"),  # GQA
     "cp_2_1": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "no_mask", "no_bias"),  # GQA
     "cp_2_2": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "causal", "post_scale_bias"),  # GQA
     "cp_2_3": ModelConfig(2, 12, 2, 128, 4096, 4096, 0.0, "no_mask", "post_scale_bias"),  # GQA
     "cp_2_4": ModelConfig(
-       2, 12, 2, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
+        2, 12, 2, 128, 4096, 4096, 0.0, "causal", "no_bias", window_size=(512, 0)
     ),  # GQA
 }
 
@@ -106,9 +106,7 @@ model_configs_fused_attn = {
 @pytest.mark.skipif(get_device_compute_capability() < (8, 0), reason="CP tests require sm80+.")
 @pytest.mark.parametrize(
     "dtype",
-    [
-        "bf16", "fp16", "fp8"
-    ],
+    ["bf16", "fp16", "fp8"],
 )
 @pytest.mark.parametrize("model", model_configs_fused_attn.keys())
 @pytest.mark.parametrize("qkv_format", ["bshd", "sbhd", "thd"])
