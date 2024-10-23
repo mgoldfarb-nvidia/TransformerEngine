@@ -262,6 +262,8 @@ class _FusedDotProductAttention(nn.Module):  # pylint: disable=too-few-public-me
     scale_factor: Optional[float] = None
     transpose_batch_sequence: bool = False
     window_size: Optional[Tuple[int, int]] = None
+    is_context_parallel: bool = False
+    is_context_parallel_load_balanced: bool = False
 
     @nn.compact
     def __call__(
@@ -444,12 +446,12 @@ class DotProductAttention(nn.Module):  # pylint: disable=too-few-public-methods
           key and value arguments in :attr:`__call__()` are ignored in this layout.
         * bshd_bs2hd: query tensor with shape = [b, s, h, d]. key tensor is treaded as a kvpacked
           tensor with shape = [b, s, 2, h, d]. `value` argument in :attr:`__call__()` is ignored.
-        * bshd_bshd_bshd: query, key, and value are seperated with shape = [b, s, h, d].
+        * bshd_bshd_bshd: query, key, and value are separated with shape = [b, s, h, d].
 
         Explanation of denotations:
 
         * b: batch size
-        * s: seqeuence length
+        * s: sequence length
         * h: num_attention_heads or num_gqa_groups
         * d: head dimension
 
@@ -483,6 +485,8 @@ class DotProductAttention(nn.Module):  # pylint: disable=too-few-public-methods
     scale_factor: Optional[float] = None
     transpose_batch_sequence: bool = True
     window_size: Optional[Tuple[int, int]] = None
+    is_context_parallel: bool = False
+    is_context_parallel_load_balanced: bool = False
 
     @nn.compact
     def __call__(
@@ -557,9 +561,19 @@ class DotProductAttention(nn.Module):  # pylint: disable=too-few-public-methods
             seqlen_kv,
             self.head_dim,
             self.window_size,
+            self.is_context_parallel,
         )
 
         use_fused_attn = enable_fused_attn and has_fused_attn_kernel
+
+        if self.is_context_parallel and not enable_fused_attn:
+            raise ValueError(f"Context parallel attention requires fused attention.")
+
+        if self.is_context_parallel and not has_fused_attn_kernel:
+            raise ValueError(
+                f"Context parallel attention requires fused attention but there is no available"
+                f" kernel."
+            )
 
         if enable_fused_attn and not has_fused_attn_kernel:
             warnings.warn(
@@ -614,6 +628,8 @@ class DotProductAttention(nn.Module):  # pylint: disable=too-few-public-methods
                 transpose_batch_sequence=self.transpose_batch_sequence,
                 qkv_layout=qkv_layout,
                 window_size=self.window_size,
+                is_context_parallel=self.is_context_parallel,
+                is_context_parallel_load_balanced=self.is_context_parallel_load_balanced,
             )(query, key, value, mask, bias, dropout_rng=dropout_rng, deterministic=deterministic)
 
         return x
