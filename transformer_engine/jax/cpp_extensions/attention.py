@@ -1065,7 +1065,7 @@ class _FusedAttnCPWithAllGatherHelper:
         return _FusedAttnConfig(
             attn_bias_type=self.config.attn_bias_type,
             attn_mask_type=self.get_adjusted_mask(),
-            qkv_layout=self.config.qkv_layout,
+            qkv_layout=NVTE_QKV_Layout.NVTE_BSHD_BS2HD,
             scaling_factor=self.config.scaling_factor,
             dropout_probability=self.config.dropout_probability,
             is_training=self.config.is_training,
@@ -1075,7 +1075,7 @@ class _FusedAttnCPWithAllGatherHelper:
             cp_axis=self.config.cp_axis,
         )
 
-    def all_gather_kv(self, k, v):
+    def all_gather_kv(self, kv):
         """Performs a all-gather of k and v over context parallel ranks."""
 
         def ag(x):
@@ -1087,15 +1087,9 @@ class _FusedAttnCPWithAllGatherHelper:
                 x = reorder_causal_load_balancing(x, cp_size, 1, to_contiguous=True)
             return x
 
-        match self.config.qkv_layout:
-            case NVTE_QKV_Layout.NVTE_BSHD_BS2HD:
-                return ag(k), v
-            case NVTE_QKV_Layout.NVTE_BSHD_BSHD_BSHD:
-                return ag(k), ag(v)
+        return ag(kv)
 
-        return k, v  # fall through
-
-    def reduce_scatter_dkv(self, dk, dv):
+    def reduce_scatter_dkv(self, dkdv):
         """Performs a reduce-scatter of dk and dv over context parallel ranks."""
 
         def rs(x):
@@ -1112,13 +1106,7 @@ class _FusedAttnCPWithAllGatherHelper:
                 tiled=True,
             )
 
-        match self.config.qkv_layout:
-            case NVTE_QKV_Layout.NVTE_BSHD_BS2HD:
-                return rs(dk), dv
-            case NVTE_QKV_Layout.NVTE_BSHD_BSHD_BSHD:
-                return rs(dk), rs(dv)
-
-        return dk, dv  # fall through
+        return rs(dkdv)
 
     def kv_seqlens_for_rank(self, cp_rank, kv_max_seqlen, kv_seqlen_per_subrank):
         """Returns sequence lengths of KV to use for each sub rank of the given cp_rank.
@@ -1147,36 +1135,31 @@ class _FusedAttnCPWithAllGatherHelper:
             ]
         return kv_seq_this_rank
 
-    def slice_kv(self, k, v, slice_seq_len):
+    def slice_kv(self, kv, slice_seq_len):
         """Slices k and v tensors to a sequence length of slice_seq_len."""
 
         def sliced(x):
             return lax.dynamic_slice_in_dim(x, 0, slice_seq_len, axis=1)
 
-        match self.config.qkv_layout:
-            case NVTE_QKV_Layout.NVTE_BSHD_BS2HD:
-                return sliced(k), v
-            case NVTE_QKV_Layout.NVTE_BSHD_BSHD_BSHD:
-                return sliced(k), sliced(v)
+        return sliced(kv)
 
-        return k, v  # fall through
-
-    def pad_kv(self, dk, dv, pad_seq_len):
+    def pad_kv(self, dkdv, pad_seq_len):
         """Pads dk and dv tensors to a sequence length of pad_seq_len."""
 
         def pad(x, npad):
             return jnp.pad(x, npad, "constant", constant_values=0.0)
 
+        npad = [[0, 0], [0, pad_seq_len], [0, 0], [0, 0], [0, 0]]
+        return pad(dkdv, npad)
+
+    def stack_kv(self, k, v):
         match self.config.qkv_layout:
-            case NVTE_QKV_Layout.NVTE_BSHD_BS2HD:
-                npad = [[0, 0], [0, pad_seq_len], [0, 0], [0, 0], [0, 0]]
-                return pad(dk, npad), dv
             case NVTE_QKV_Layout.NVTE_BSHD_BSHD_BSHD:
-                npad = [[0, 0], [0, pad_seq_len], [0, 0], [0, 0]]
-                return pad(dk, npad), pad(dv, npad)
+                return lax.stack(k, v, axis=2)
+        return k, v
 
-        return dk, dv  # fall through
-
+    def unstack_kv(self, kv):
+        return lax.unstack(kv, axis=2)
 
 class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
     """
@@ -1216,8 +1199,8 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
             # meeting the expectation of the SPMD model.
             # TODO(mgoldfarb-nvidia): When cuDNN supports we should be able to make use of a padding
             # mask/sequence length tensor to avoid this unrolled loop.
-            def _cross_attn(idx, q, k, v, bias, q_seqlen, kv_seqlen, seed):
-                kv_max_seqlen = k.shape[1]
+            def _cross_attn(idx, q, kv, bias, q_seqlen, kv_seqlen, seed):
+                kv_max_seqlen = kv.shape[1]
                 kv_seqlen_per_subrank = kv_max_seqlen // (cp_size * 2)
                 assert kv_max_seqlen % cp_size == 0, "sequence length must evenly divide cp size"
 
@@ -1230,9 +1213,9 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
                 results = []
                 for sub_idx in range(2):
                     if config.attn_mask_type == NVTE_Mask_Type.NVTE_NO_MASK:
-                        k_unmasked, v_unmasked = k, v  # full kv used for unmasked
+                        kv_unmasked = kv  # full kv used for unmasked
                     else:
-                        k_unmasked, v_unmasked = helper.slice_kv(k, v, kv_seqlens_for_rank[sub_idx])
+                        kv_unmasked = helper.slice_kv(kv, kv_seqlens_for_rank[sub_idx])
 
                     q_seqlen_for_step = q_seqlen / (cp_size * 2)
                     num_kv_chunks = kv_max_seqlen // kv_seqlens_for_rank[sub_idx]
@@ -1240,8 +1223,8 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
 
                     output, softmax_aux, rng_state = FusedAttnFwdPrimitive.impl(
                         q_split[sub_idx],
-                        k_unmasked,
-                        v_unmasked,
+                        kv_unmasked,
+                        jnp.zeros(0, dtype=kv.dtype), # unused
                         bias,
                         q_seqlen_for_step,
                         kv_seqlen_for_step,
@@ -1258,10 +1241,11 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
 
                 return output, softmax_aux, rng_state
 
-            k_ag, v_ag = helper.all_gather_kv(k, v)
+            kv = helper.stack_kv(k, v)
+            kv_ag = helper.all_gather_kv(kv)
 
             functions = [
-                partial(_cross_attn, idx, q, k_ag, v_ag, bias, q_seqlen, kv_seqlen, seed)
+                partial(_cross_attn, idx, q, kv_ag, jnp.zeros(0, dtype=kv.dtype), bias, q_seqlen, kv_seqlen, seed)
                 for idx in range(cp_size)
             ]
 
@@ -1326,9 +1310,9 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
 
             # See comment in FusedAttnCPFwdPrimitive.partition for why we define this function.
             def _cross_attn_bwd(
-                idx, q, k, v, bias, softmax_aux, rng_state, output, doutput, q_seqlen, kv_seqlen
+                idx, q, kv, bias, softmax_aux, rng_state, output, doutput, q_seqlen, kv_seqlen
             ):
-                kv_max_seqlen = k.shape[1]
+                kv_max_seqlen = kv.shape[1]
                 kv_seqlen_per_subrank = kv_max_seqlen // (cp_size * 2)
                 assert kv_max_seqlen % cp_size == 0, "sequence length must evenly divide cp size"
 
@@ -1344,18 +1328,18 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                 results = []
                 for sub_idx in range(2):
                     if config.attn_mask_type == NVTE_Mask_Type.NVTE_NO_MASK:
-                        k_unmasked, v_unmasked = k, v  # full kv used for unmasked
+                        kv_unmasked = kv  # full kv used for unmasked
                     else:
-                        k_unmasked, v_unmasked = helper.slice_kv(k, v, kv_seqlens_for_rank[sub_idx])
+                        kv_unmasked = helper.slice_kv(kv, kv_seqlens_for_rank[sub_idx])
 
                     q_seqlen_for_step = q_seqlen // (cp_size * 2)
                     num_kv_chunks = kv_max_seqlen // kv_seqlens_for_rank[sub_idx]
                     kv_seqlen_for_step = (kv_seqlen // (cp_size * 2)) * num_kv_chunks
 
-                    dq_local, dk_local, dv_local, dbias_local = FusedAttnBwdPrimitive.impl(
+                    dq_local, dkdv_local, _, dbias_local = FusedAttnBwdPrimitive.impl(
                         q_split[sub_idx],
-                        k_unmasked,
-                        v_unmasked,
+                        kv_unmasked,
+                        jnp.zeros(0, dtype=kv_unmasked.dtype), # unused
                         bias,
                         softmax_aux_split[sub_idx],
                         rng_state,
@@ -1371,24 +1355,24 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                     # pad dk/dv to be unsliced shape so we can reduce scatter over all ranks.
                     if config.attn_mask_type != NVTE_Mask_Type.NVTE_NO_MASK:
                         pad_length = kv_max_seqlen - kv_seqlens_for_rank[sub_idx]
-                        dk_local, dv_local = helper.pad_kv(dk_local, dv_local, pad_length)
+                        dkdv_local = helper.pad_kv(dkdv_local, pad_length)
 
-                    results.append((dq_local, dk_local, dv_local, dbias_local))
+                    results.append((dq_local, dkdv_local, dbias_local))
 
                 dq_local = jnp.concatenate((results[0][0], results[1][0]), axis=1)
-                dk_local_pad = results[0][1] + results[1][1]
-                dv_local_pad = results[0][2] + results[1][2]
-                return dq_local, dk_local_pad, dv_local_pad, results[1][3]
+                dkdv_local_pad = results[0][1] + results[1][1]
+                return dq_local, dkdv_local_pad, results[1][3]
 
-            k_ag, v_ag = helper.all_gather_kv(k, v)
+            kv = helper.stack_kv(k, v)
+            kv_ag = helper.all_gather_kv(kv)
 
             functions = [
                 partial(
                     _cross_attn_bwd,
                     idx,
                     q,
-                    k_ag,
-                    v_ag,
+                    kv_ag,
+                    jnp.zeros(0, dtype=kv_ag.dtype), # not used
                     bias,
                     softmax_aux,
                     rng_state,
@@ -1400,8 +1384,8 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                 for idx in range(cp_size)
             ]
 
-            dq, dk_local, dv_local, dbias = lax.switch(cp_rank, functions)
-            dk, dv = helper.reduce_scatter_dkv(dk_local, dv_local)
+            dq, dkdv_local, dbias = lax.switch(cp_rank, functions)
+            dk, dv = helper.reduce_scatter_dkv(dkdv_local)
 
             return dq, dk, dv, dbias
 
