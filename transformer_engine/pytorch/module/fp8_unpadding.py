@@ -31,7 +31,8 @@ class _Fp8Unpadding(torch.autograd.Function):
         # pylint: disable=missing-function-docstring
         inputmats = torch.split(inp.view(-1, inp.shape[-1]), padded_m_splits)
         out_ret = torch.cat(
-            [grad_output_mat[: m_splits[i]] for i, grad_output_mat in enumerate(inputmats)], dim=0
+            [grad_output_mat[: m_splits[i]] for i, grad_output_mat in enumerate(inputmats)],
+            dim=0,
         )
 
         if is_grad_enabled:
@@ -53,11 +54,16 @@ class _Fp8Unpadding(torch.autograd.Function):
             # Allocate cast and transpose output tensor
             total_row = sum(ctx.padded_m_splits)
             grad_input = torch.empty(
-                [total_row, in_features], dtype=grad_output.dtype, device=grad_output.device
+                [total_row, in_features],
+                dtype=grad_output.dtype,
+                device=grad_output.device,
             )
             # FP8 pad input for forward, FP8 input transpose for backward wgrad
             multi_padding_fused(
-                grad_output.view(-1, in_features), ctx.m_splits, ctx.padded_m_splits, grad_input
+                grad_output.view(-1, in_features),
+                ctx.m_splits,
+                ctx.padded_m_splits,
+                grad_input,
             )
 
         return (grad_input, None, None, None)

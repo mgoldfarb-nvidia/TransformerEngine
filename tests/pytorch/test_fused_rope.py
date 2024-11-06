@@ -50,7 +50,8 @@ def apply_rotary_pos_emb_thd(
     return torch.cat(
         [
             apply_rotary_pos_emb(
-                x.unsqueeze(1), _get_thd_freqs_on_this_cp_rank(cp_rank, cp_size, x, freqs)
+                x.unsqueeze(1),
+                _get_thd_freqs_on_this_cp_rank(cp_rank, cp_size, x, freqs),
             )
             for x in torch.split(t, seqlens)
         ]

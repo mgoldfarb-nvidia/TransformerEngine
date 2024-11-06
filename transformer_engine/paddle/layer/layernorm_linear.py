@@ -24,7 +24,13 @@ from ..cpp_extensions import (
 
 from .base import TransformerEngineBaseLayer
 from .linear import _linear_fwd, _linear_bwd
-from ..constants import TE_DType, FP8FwdTensors, FP8BwdTensors, GemmParallelModes, dist_group_type
+from ..constants import (
+    TE_DType,
+    FP8FwdTensors,
+    FP8BwdTensors,
+    GemmParallelModes,
+    dist_group_type,
+)
 from ..distributed import (
     allreduce,
     get_tp_group_and_world_size,
@@ -308,7 +314,11 @@ class _LayerNormLinear(paddle.autograd.PyLayer):
         ctx, *grad_outputs: Tuple[paddle.Tensor, ...]
     ) -> Tuple[Union[paddle.Tensor, None], ...]:
         with TransformerEngineBaseLayer.prepare_backward(
-            ctx.fp8_enabled, ctx.fp8_meta, ctx.tp_group, ctx.tp_size, name="_LayerNormLinear"
+            ctx.fp8_enabled,
+            ctx.fp8_meta,
+            ctx.tp_group,
+            ctx.tp_size,
+            name="_LayerNormLinear",
         ):
             (  # pylint: disable=unbalanced-tuple-unpacking
                 inputmat,
@@ -494,7 +504,10 @@ class LayerNormLinear(TransformerEngineBaseLayer):
         self.out_features = out_features
         self.eps = eps
         self.normalization = normalization
-        assert normalization in ["LayerNorm", "RMSNorm"], "Unsupported normalization type!"
+        assert normalization in [
+            "LayerNorm",
+            "RMSNorm",
+        ], "Unsupported normalization type!"
         self.return_layernorm_output = return_layernorm_output
         self.zero_centered_gamma = zero_centered_gamma
         self.backend = backend
@@ -634,7 +647,7 @@ class LayerNormLinear(TransformerEngineBaseLayer):
                 self.activation_dtype,
                 self.return_layernorm_output,
                 paddle.is_grad_enabled(),
-                self.fwd_ln_sm_margin if paddle.is_grad_enabled() else self.inf_ln_sm_margin,
+                (self.fwd_ln_sm_margin if paddle.is_grad_enabled() else self.inf_ln_sm_margin),
                 self.bwd_ln_sm_margin,
                 self.zero_centered_gamma,
                 self.normalization,

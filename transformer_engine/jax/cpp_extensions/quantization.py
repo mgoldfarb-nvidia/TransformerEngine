@@ -106,15 +106,26 @@ class CastFP8Primitive(BasePrimitive):
                 ir.RankedTensorType.get(ir_amax_shape, ir_amax_dtype),
             ]
             operands = [x, amax, scale, scale_inv]
-            operand_shapes = [ir_x_shape, ir_amax_shape, ir_scale_shape, ir_scale_inv_shape]
+            operand_shapes = [
+                ir_x_shape,
+                ir_amax_shape,
+                ir_scale_shape,
+                ir_scale_inv_shape,
+            ]
             args = CustomCallArgsWrapper(out_types, operands, operand_shapes)
 
             opaque = transformer_engine_jax.pack_common_descriptor(
-                ir_x_shape, jax_dtype_to_te_dtype(x_aval.dtype), jax_dtype_to_te_dtype(out_dtype)
+                ir_x_shape,
+                jax_dtype_to_te_dtype(x_aval.dtype),
+                jax_dtype_to_te_dtype(out_dtype),
             )
 
             out = custom_caller(
-                CastFP8Primitive.name, args, opaque, False, operand_output_aliases={1: 1}
+                CastFP8Primitive.name,
+                args,
+                opaque,
+                False,
+                operand_output_aliases={1: 1},
             )
 
         return out

@@ -22,7 +22,11 @@ ffn_hidden_size = 1024
 def test_gqa(kv_channels, hidden_size, num_gqa_groups) -> None:
 
     model = te.TransformerLayer(
-        hidden_size, ffn_hidden_size, num_attn_head, num_gqa_groups, kv_channels=kv_channels
+        hidden_size,
+        ffn_hidden_size,
+        num_attn_head,
+        num_gqa_groups,
+        kv_channels=kv_channels,
     )
 
     # Run forward pass

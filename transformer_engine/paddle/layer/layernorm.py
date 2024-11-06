@@ -60,7 +60,13 @@ class _LayerNorm(paddle.autograd.PyLayer):
         inputmat, ln_weight, mu, rsigma = ctx.saved_tensor()
         d_ln_out = grad_output.reshape(inputmat.shape)
         dxmat, dgamma, dbeta = layernorm_bwd(
-            d_ln_out, inputmat, mu, rsigma, ln_weight, ctx.bwd_ln_sm_margin, ctx.zero_centered_gamma
+            d_ln_out,
+            inputmat,
+            mu,
+            rsigma,
+            ln_weight,
+            ctx.bwd_ln_sm_margin,
+            ctx.zero_centered_gamma,
         )
         return (
             dxmat.reshape(ctx.inp_shape) if ctx.requires_dx else None,

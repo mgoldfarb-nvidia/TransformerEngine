@@ -458,7 +458,11 @@ class ScaledSoftmaxBwdPrimitive(SoftmaxPrimitive):
         te_scaled_softmax_backward lowering rules
         """
         out = SoftmaxPrimitive.backward_lowering(
-            ScaledSoftmaxBwdPrimitive.name, ctx, dz, softmax_out, scale_factor=scale_factor
+            ScaledSoftmaxBwdPrimitive.name,
+            ctx,
+            dz,
+            softmax_out,
+            scale_factor=scale_factor,
         )
 
         return out
@@ -466,7 +470,10 @@ class ScaledSoftmaxBwdPrimitive(SoftmaxPrimitive):
     @staticmethod
     def impl(dz, softmax_out, scale_factor):
         return SoftmaxPrimitive.backward_impl(
-            ScaledSoftmaxBwdPrimitive.inner_primitive, dz, softmax_out, scale_factor=scale_factor
+            ScaledSoftmaxBwdPrimitive.inner_primitive,
+            dz,
+            softmax_out,
+            scale_factor=scale_factor,
         )
 
     @staticmethod
@@ -642,7 +649,11 @@ class ScaledMaskedSoftmaxFwdPrimitive(SoftmaxPrimitive):
     @staticmethod
     def partition(scale_factor, mesh, arg_infos, result_infos):
         return ScaledMaskedSoftmaxFwdPrimitive.backward_partition(
-            ScaledMaskedSoftmaxFwdPrimitive.impl, scale_factor, mesh, arg_infos, result_infos
+            ScaledMaskedSoftmaxFwdPrimitive.impl,
+            scale_factor,
+            mesh,
+            arg_infos,
+            result_infos,
         )
 
 
@@ -696,7 +707,11 @@ class ScaledMaskedSoftmaxBwdPrimitive(SoftmaxPrimitive):
         te_scaled_upper_triang_masked_backward lowering rules
         """
         out = SoftmaxPrimitive.backward_lowering(
-            ScaledMaskedSoftmaxBwdPrimitive.name, ctx, dz, softmax_out, scale_factor=scale_factor
+            ScaledMaskedSoftmaxBwdPrimitive.name,
+            ctx,
+            dz,
+            softmax_out,
+            scale_factor=scale_factor,
         )
 
         return out
@@ -729,7 +744,11 @@ class ScaledMaskedSoftmaxBwdPrimitive(SoftmaxPrimitive):
     @staticmethod
     def partition(scale_factor, mesh, arg_infos, result_infos):
         return ScaledMaskedSoftmaxBwdPrimitive.backward_partition(
-            ScaledMaskedSoftmaxBwdPrimitive.impl, scale_factor, mesh, arg_infos, result_infos
+            ScaledMaskedSoftmaxBwdPrimitive.impl,
+            scale_factor,
+            mesh,
+            arg_infos,
+            result_infos,
         )
 
 
@@ -804,13 +823,18 @@ class ScaledUpperTriangMaskedSoftmaxFwdPrimitive(SoftmaxPrimitive):
         te_scaled_upper_triang_masked_softmax_forward lowering rules
         """
         return SoftmaxPrimitive.forward_lowering(
-            ScaledUpperTriangMaskedSoftmaxFwdPrimitive.name, ctx, logits, scale_factor=scale_factor
+            ScaledUpperTriangMaskedSoftmaxFwdPrimitive.name,
+            ctx,
+            logits,
+            scale_factor=scale_factor,
         )
 
     @staticmethod
     def impl(logits, scale_factor):
         return SoftmaxPrimitive.forward_impl(
-            ScaledUpperTriangMaskedSoftmaxFwdPrimitive.inner_primitive, logits, scale_factor
+            ScaledUpperTriangMaskedSoftmaxFwdPrimitive.inner_primitive,
+            logits,
+            scale_factor,
         )
 
     @staticmethod
@@ -945,7 +969,8 @@ def scaled_upper_triang_masked_softmax_bwd(
     """
     if not ScaledUpperTriangMaskedSoftmaxBwdPrimitive.enabled():
         _, vjp_func = jax.vjp(
-            partial(_jax_scaled_upper_triang_masked_softmax, scale_factor=scale_factor), logits
+            partial(_jax_scaled_upper_triang_masked_softmax, scale_factor=scale_factor),
+            logits,
         )
         return vjp_func(dz)[0]
     return ScaledUpperTriangMaskedSoftmaxBwdPrimitive.outer_primitive.bind(

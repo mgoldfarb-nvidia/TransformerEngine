@@ -132,7 +132,8 @@ def test_export_loaded_checkpoint(scale_fwd, scale_bwd, history_fwd, history_bwd
         model_in.fp8_meta["scaling_fwd"].scale, model_out.fp8_meta["scaling_fwd"].scale
     )
     assert torch.allclose(
-        model_in.fp8_meta["scaling_fwd"].scale_inv, model_out.fp8_meta["scaling_fwd"].scale_inv
+        model_in.fp8_meta["scaling_fwd"].scale_inv,
+        model_out.fp8_meta["scaling_fwd"].scale_inv,
     )
     assert torch.allclose(
         model_in.fp8_meta["scaling_fwd"].amax_history,
@@ -143,7 +144,8 @@ def test_export_loaded_checkpoint(scale_fwd, scale_bwd, history_fwd, history_bwd
         model_in.fp8_meta["scaling_bwd"].scale, model_out.fp8_meta["scaling_bwd"].scale
     )
     assert torch.allclose(
-        model_in.fp8_meta["scaling_bwd"].scale_inv, model_out.fp8_meta["scaling_bwd"].scale_inv
+        model_in.fp8_meta["scaling_bwd"].scale_inv,
+        model_out.fp8_meta["scaling_bwd"].scale_inv,
     )
     assert torch.allclose(
         model_in.fp8_meta["scaling_bwd"].amax_history,
@@ -287,7 +289,8 @@ def test_fp8_model_checkpoint(
         # This is crucial to avoid confusion about which value is correct.
         meta_index = model.weight._fp8_meta_index
         torch.testing.assert_close(
-            model.weight._scale_inv.item(), fp8_meta_fwd_ref["scale_inv"][meta_index].item()
+            model.weight._scale_inv.item(),
+            fp8_meta_fwd_ref["scale_inv"][meta_index].item(),
         )
 
 

@@ -129,7 +129,10 @@ def fp8_gemm(
 ) -> paddle.Tensor:
     """TN layout GEMM with fp8 inputs."""
 
-    if D_dtype is not None and D_dtype in [tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2]:
+    if D_dtype is not None and D_dtype in [
+        tex.DType.kFloat8E4M3,
+        tex.DType.kFloat8E5M2,
+    ]:
         assert fp8_meta_tensor is not None and out_index is not None
 
     if out is None:

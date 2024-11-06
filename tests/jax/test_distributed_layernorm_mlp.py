@@ -44,12 +44,22 @@ def generate_fsdp_and_tp_configs():
     configs = []
     if is_devices_enough(2):
         configs.append(
-            [2, (1, 2), ("fsdp", "tp"), MeshResource(fsdp_resource="fsdp", tp_resource="tp")]
+            [
+                2,
+                (1, 2),
+                ("fsdp", "tp"),
+                MeshResource(fsdp_resource="fsdp", tp_resource="tp"),
+            ]
         )
 
     if is_devices_enough(4):
         configs.append(
-            [4, (2, 2), ("fsdp", "tp"), MeshResource(fsdp_resource="fsdp", tp_resource="tp")]
+            [
+                4,
+                (2, 2),
+                ("fsdp", "tp"),
+                MeshResource(fsdp_resource="fsdp", tp_resource="tp"),
+            ]
         )
     return configs
 
@@ -178,7 +188,13 @@ class TestDistributedLayernormMLP:
         inputs = [x, gamma, k1, k2, b1, b2] = self.generate_inputs(
             input_shape, activation_type, use_bias, dtype
         )
-        inputs = [*inputs, fp8_amax_list_1, fp8_amax_list_2, fp8_scale_list_1, fp8_scale_list_2]
+        inputs = [
+            *inputs,
+            fp8_amax_list_1,
+            fp8_amax_list_2,
+            fp8_scale_list_1,
+            fp8_scale_list_2,
+        ]
         static_inputs = [layernorm_type, activation_type, use_bias]
         value_and_grad_func = jax.value_and_grad(
             self.layernorm_fp8_mlp_prim_func, argnums=range(len(inputs))
@@ -186,7 +202,8 @@ class TestDistributedLayernormMLP:
 
         # Single GPU
         single_jitter = jax.jit(
-            value_and_grad_func, static_argnums=range(len(inputs), len(static_inputs) + len(inputs))
+            value_and_grad_func,
+            static_argnums=range(len(inputs), len(static_inputs) + len(inputs)),
         )
         with fp8_autocast(enabled=True):
             single_fwd, single_grads = single_jitter(*inputs, *static_inputs)
@@ -223,7 +240,18 @@ class TestDistributedLayernormMLP:
             )
             out_shardings = (
                 None,
-                (None, None, k1_sharding, k2_sharding, b1_sharding, None, None, None, None, None),
+                (
+                    None,
+                    None,
+                    k1_sharding,
+                    k2_sharding,
+                    b1_sharding,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ),
             )
 
             multi_jitter = jax.jit(
@@ -242,7 +270,10 @@ class TestDistributedLayernormMLP:
                     assert isinstance(single_grads[i], list)
                     for m_grad, s_grad in zip(multi_grads[i], single_grads[i]):
                         assert_allclose(
-                            m_grad, s_grad, dtype=dtype, err_msg=f"multi_grads[{i}] is not close"
+                            m_grad,
+                            s_grad,
+                            dtype=dtype,
+                            err_msg=f"multi_grads[{i}] is not close",
                         )
                 else:
                     assert_allclose(

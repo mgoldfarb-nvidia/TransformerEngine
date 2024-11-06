@@ -183,7 +183,8 @@ def initialize_ub(
         #       the chosen bootstrap backend.
         mydomain = socket.gethostname()
         ifname = os.getenv(
-            "NVTE_UB_SOCKET_IFNAME", os.getenv(f"{bootstrap_backend.upper()}_SOCKET_IFNAME")
+            "NVTE_UB_SOCKET_IFNAME",
+            os.getenv(f"{bootstrap_backend.upper()}_SOCKET_IFNAME"),
         )
         if ifname is not None:
             # Make sure the ifname found in the environment is a valid network interface
@@ -192,7 +193,9 @@ def initialize_ub(
                 try:
                     mydomain = socket.inet_ntoa(
                         fcntl.ioctl(
-                            s.fileno(), 0x8915, struct.pack("256s", ifname[:15].encode("UTF-8"))
+                            s.fileno(),
+                            0x8915,
+                            struct.pack("256s", ifname[:15].encode("UTF-8")),
                         )[20:24]
                     )
                 except OSError as err:
@@ -252,7 +255,11 @@ def initialize_ub(
             helper = tex.CommOverlapHelper(world_group)
 
         if world_rank == 0:
-            print(f"!!! [UB] Number of NVLink domains: {num_domains}\n", end="", flush=True)
+            print(
+                f"!!! [UB] Number of NVLink domains: {num_domains}\n",
+                end="",
+                flush=True,
+            )
         if local_rank == 0:
             print(
                 f"!!! [UB] Global ranks on domain {mydomain_idx}: {intra_domain_ranks}\n",
@@ -273,7 +280,12 @@ def initialize_ub(
         "fc1_dgrad",
         "fc2_dgrad",
     ]
-    layers_reduce_scatter_overlap = ["proj_fprop", "fc2_fprop", "qkv_wgrad", "fc1_wgrad"]
+    layers_reduce_scatter_overlap = [
+        "proj_fprop",
+        "fc2_fprop",
+        "qkv_wgrad",
+        "fc1_wgrad",
+    ]
     dgrad_reduce_scatter_overlap = ["qkv_dgrad", "fc1_dgrad"]
     # Default overlap methods for layers
     methods = {
@@ -1088,7 +1100,14 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         return out
 
     def _load_from_state_dict(
-        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
     ):
         """
         This function loads tensors and extra state including fp8 metadata.
@@ -1105,5 +1124,11 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             if extra_state_key in state_dict:
                 self.set_extra_state(state_dict[extra_state_key])
         super()._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
         )

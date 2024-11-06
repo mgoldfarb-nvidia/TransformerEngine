@@ -133,7 +133,10 @@ def divide(numerator: int, denominator: int) -> int:
 
 
 def split_tensor_along_dim(
-    tensor: torch.Tensor, dim: int, num_partitions: int, contiguous_split_chunks: bool = False
+    tensor: torch.Tensor,
+    dim: int,
+    num_partitions: int,
+    contiguous_split_chunks: bool = False,
 ) -> Tuple[torch.Tensor, ...]:
     """Split a tensor along its last dimension.
     Arguments:

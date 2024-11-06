@@ -22,7 +22,9 @@ from transformer_engine.jax.flax import LayerNorm as flax_LayerNorm
 from transformer_engine.jax.flax import LayerNormMLP as flax_LayerNormMLP
 from transformer_engine.jax.flax import MultiHeadAttention as flax_MultiHeadAttention
 from transformer_engine.jax.flax import DotProductAttention as flax_DotProductAttention
-from transformer_engine.jax.flax import RelativePositionBiases as flax_RelativePositionBiases
+from transformer_engine.jax.flax import (
+    RelativePositionBiases as flax_RelativePositionBiases,
+)
 from transformer_engine.jax.flax import TransformerLayer as flax_TransformerLayer
 from transformer_engine.jax.flax.module import Softmax
 from transformer_engine.jax.fp8 import FP8Helper, is_fp8_available
@@ -30,7 +32,10 @@ from transformer_engine.jax.praxis import LayerNorm
 from transformer_engine.jax.praxis import FusedSoftmax
 from transformer_engine.jax.praxis import LayerNormLinear, LayerNormMLP, Linear
 from transformer_engine.jax.praxis import DotProductAttention, MultiHeadAttention
-from transformer_engine.jax.praxis import RelativePositionBiases, TransformerEngineBaseLayer
+from transformer_engine.jax.praxis import (
+    RelativePositionBiases,
+    TransformerEngineBaseLayer,
+)
 from transformer_engine.jax.praxis import TransformerLayer, TransformerLayerType
 from transformer_engine.jax.softmax import SoftmaxType
 
@@ -52,7 +57,11 @@ def compare_dict(ref_fd, test_fd, rtol=1e-05, atol=1e-08):
             compare_dict(ref_fd[key], test_fd[key], rtol, atol)
         else:
             assert_allclose(
-                ref_fd[key], test_fd[key], rtol=rtol, atol=atol, err_msg=f"{key=} is not close"
+                ref_fd[key],
+                test_fd[key],
+                rtol=rtol,
+                atol=atol,
+                err_msg=f"{key=} is not close",
             )
 
 
@@ -240,7 +249,10 @@ class TestFusedSoftmax(TestLayer):
         softmax_type = attrs[FusedSoftmaxAttr.ST_TYPE]
 
         praxis_p = pax_fiddle.Config(
-            FusedSoftmax, name="fused_softmax", scale_factor=scale_factor, softmax_type=softmax_type
+            FusedSoftmax,
+            name="fused_softmax",
+            scale_factor=scale_factor,
+            softmax_type=softmax_type,
         )
         flax_cls = partial(Softmax, scale_factor=scale_factor, softmax_type=softmax_type)
 
@@ -346,13 +358,55 @@ class LayerNormLinearAttr:
     LN_TYPE = "layernorm_type"
     ZERO_CEN = "zero_centered_gamma"
     ATTRS = [
-        {FEATURE: 512, USE_BIAS: True, ENABLE_LN: True, LN_TYPE: "layernorm", ZERO_CEN: False},
-        {FEATURE: 512, USE_BIAS: True, ENABLE_LN: True, LN_TYPE: "layernorm", ZERO_CEN: False},
-        {FEATURE: 512, USE_BIAS: True, ENABLE_LN: True, LN_TYPE: "layernorm", ZERO_CEN: True},
-        {FEATURE: 512, USE_BIAS: True, ENABLE_LN: True, LN_TYPE: "layernorm", ZERO_CEN: True},
-        {FEATURE: 512, USE_BIAS: True, ENABLE_LN: True, LN_TYPE: "rmsnorm", ZERO_CEN: False},
-        {FEATURE: 512, USE_BIAS: True, ENABLE_LN: True, LN_TYPE: "rmsnorm", ZERO_CEN: False},
-        {FEATURE: 512, USE_BIAS: True, ENABLE_LN: False, LN_TYPE: "layernorm", ZERO_CEN: False},
+        {
+            FEATURE: 512,
+            USE_BIAS: True,
+            ENABLE_LN: True,
+            LN_TYPE: "layernorm",
+            ZERO_CEN: False,
+        },
+        {
+            FEATURE: 512,
+            USE_BIAS: True,
+            ENABLE_LN: True,
+            LN_TYPE: "layernorm",
+            ZERO_CEN: False,
+        },
+        {
+            FEATURE: 512,
+            USE_BIAS: True,
+            ENABLE_LN: True,
+            LN_TYPE: "layernorm",
+            ZERO_CEN: True,
+        },
+        {
+            FEATURE: 512,
+            USE_BIAS: True,
+            ENABLE_LN: True,
+            LN_TYPE: "layernorm",
+            ZERO_CEN: True,
+        },
+        {
+            FEATURE: 512,
+            USE_BIAS: True,
+            ENABLE_LN: True,
+            LN_TYPE: "rmsnorm",
+            ZERO_CEN: False,
+        },
+        {
+            FEATURE: 512,
+            USE_BIAS: True,
+            ENABLE_LN: True,
+            LN_TYPE: "rmsnorm",
+            ZERO_CEN: False,
+        },
+        {
+            FEATURE: 512,
+            USE_BIAS: True,
+            ENABLE_LN: False,
+            LN_TYPE: "layernorm",
+            ZERO_CEN: False,
+        },
     ]
 
 
@@ -701,7 +755,10 @@ class TestDotProductAttn(TestLayer):
             shape = (shape[1], shape[0]) + shape[2:]
         mask = jnp.zeros((b, 1, s, s), dtype=jnp.uint8)
         return [
-            *map(partial(jax.random.normal, shape=shape, dtype=dtype), [q_key, k_key, v_key]),
+            *map(
+                partial(jax.random.normal, shape=shape, dtype=dtype),
+                [q_key, k_key, v_key],
+            ),
             mask,
         ]
 
@@ -892,7 +949,10 @@ class TestMultiHeadAttn(TestLayer):
         if self.attrs[MultiHeadAttnAttr.TRANSPOSE_BS]:
             shape = (shape[1], shape[0]) + shape[2:]
         mask = jnp.zeros((b, 1, s, s), dtype=jnp.uint8)
-        return [*map(partial(jax.random.normal, shape=shape, dtype=dtype), [q_key, kv_key]), mask]
+        return [
+            *map(partial(jax.random.normal, shape=shape, dtype=dtype), [q_key, kv_key]),
+            mask,
+        ]
 
     def get_layer_name(self):
         return "multi_head_attn"

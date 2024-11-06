@@ -204,12 +204,18 @@ def _check_gradients(model_distributed, model_single, main_grad_check=False):
         if main_grad_check:
             param_s_grad = _match_param_sizes(param_d.main_grad, param_s.main_grad)
             grad_failed, grad_info = _compare_tensors(
-                str(i), param_d.main_grad, param_s_grad, **_get_tolerances(param_s_grad.dtype)
+                str(i),
+                param_d.main_grad,
+                param_s_grad,
+                **_get_tolerances(param_s_grad.dtype),
             )
         else:
             param_s_grad = _match_param_sizes(param_d.grad, param_s.grad)
             grad_failed, grad_info = _compare_tensors(
-                str(i), param_d.grad, param_s_grad, **_get_tolerances(param_s_grad.dtype)
+                str(i),
+                param_d.grad,
+                param_s_grad,
+                **_get_tolerances(param_s_grad.dtype),
             )
 
         if grad_failed:
@@ -229,7 +235,8 @@ def _copy_params(model_distributed, model_single):
             for dim, _ in enumerate(dist_param.shape):
                 if dist_param.shape[dim] != single_param.shape[dim]:
                     src_slice = slice(
-                        WORLD_RANK * dist_param.shape[dim], (WORLD_RANK + 1) * dist_param.shape[dim]
+                        WORLD_RANK * dist_param.shape[dim],
+                        (WORLD_RANK + 1) * dist_param.shape[dim],
                     )
                     indices = [slice(None)] * max(min(dim, len(dist_param.shape) - 1), 0)
                     indices.append(src_slice)
@@ -641,7 +648,12 @@ def _test_transformer_layer_parallel(sequence_parallel=False, **kwargs):
     )  # larger tensors lead to numerical failures with thight atol and rtol
 
     model_single_node = te.TransformerLayer(
-        HIDDEN_SIZE, FFN_HIDDEN_SIZE, NR_HEADS, attention_dropout=0, hidden_dropout=0, **kwargs
+        HIDDEN_SIZE,
+        FFN_HIDDEN_SIZE,
+        NR_HEADS,
+        attention_dropout=0,
+        hidden_dropout=0,
+        **kwargs,
     )
     model_distributed = te.TransformerLayer(
         HIDDEN_SIZE,

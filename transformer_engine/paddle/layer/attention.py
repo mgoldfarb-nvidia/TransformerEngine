@@ -1051,7 +1051,14 @@ class MultiHeadAttention(paddle.nn.Layer):
             # query: -> [b, s, h, d]
             # key, value: -> [b, s, ng, d]
             query_layer, key_layer, value_layer = (
-                x.reshape(shape=[x.shape[0], x.shape[1], -1, self.hidden_size_per_attention_head])
+                x.reshape(
+                    shape=[
+                        x.shape[0],
+                        x.shape[1],
+                        -1,
+                        self.hidden_size_per_attention_head,
+                    ]
+                )
                 for x in (query_layer, key_layer, value_layer)
             )
 
@@ -1146,7 +1153,8 @@ class MultiHeadAttention(paddle.nn.Layer):
 
         if input_dim == 3:
             context_layer = paddle.reshape(
-                context_layer, [-1, max_seq_len, context_layer.shape[2] * context_layer.shape[3]]
+                context_layer,
+                [-1, max_seq_len, context_layer.shape[2] * context_layer.shape[3]],
             )
         else:  # input_dim == 2
             context_layer = paddle.reshape(

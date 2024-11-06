@@ -31,11 +31,17 @@ for _name, _value in transformer_engine_jax.registrations().items():
     if _name.endswith("_ffi"):
         if is_ffi_enabled():
             jex.ffi.register_ffi_target(
-                _name, _value, platform="CUDA", api_version=CustomCallAPIVersion.FFI.value
+                _name,
+                _value,
+                platform="CUDA",
+                api_version=CustomCallAPIVersion.FFI.value,
             )
     else:
         jex.ffi.register_ffi_target(
-            _name, _value, platform="CUDA", api_version=CustomCallAPIVersion.OPAQUE.value
+            _name,
+            _value,
+            platform="CUDA",
+            api_version=CustomCallAPIVersion.OPAQUE.value,
         )
 
 

@@ -373,7 +373,8 @@ class TestGemm:
 
     @staticmethod
     @pytest.mark.skipif(
-        paddle.device.cuda.get_device_capability() < (8, 0), reason="BF16 GEMM requires Ampere+ GPU"
+        paddle.device.cuda.get_device_capability() < (8, 0),
+        reason="BF16 GEMM requires Ampere+ GPU",
     )
     @pytest.mark.parametrize("m,n,k", GEMM_CASES)
     def test_bf16(m, n, k):
@@ -392,14 +393,26 @@ class TestGemm:
         # Here we perform "TN" GEMM in column major, i.e., b@a^T = C^T,
         # which is equivalent to a@b^T = C in row major.
         actual_out, _, _ = gemm(
-            b, a, paddle.bfloat16, workspace, False, None, False, False, "TN", None, None, False
+            b,
+            a,
+            paddle.bfloat16,
+            workspace,
+            False,
+            None,
+            False,
+            False,
+            "TN",
+            None,
+            None,
+            False,
         )
 
         assert_allclose(actual_out, ref_out, rtol=1.6e-2, atol=1e-5)
 
     @staticmethod
     @pytest.mark.skipif(
-        paddle.device.cuda.get_device_capability() < (8, 0), reason="BF16 GEMM requires Ampere+ GPU"
+        paddle.device.cuda.get_device_capability() < (8, 0),
+        reason="BF16 GEMM requires Ampere+ GPU",
     )
     @pytest.mark.parametrize("m,n,k", GEMM_CASES)
     def test_bf16_inplace(m, n, k):

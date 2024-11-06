@@ -52,20 +52,33 @@ def _parse_args(argv=None, namespace=None):
         "-n", "--num-heads", type=int, default=12, help="Number of attention heads."
     )
     parser.add_argument(
-        "-d", "--head-dim", type=int, default=64, help="Dimension of each attention head."
+        "-d",
+        "--head-dim",
+        type=int,
+        default=64,
+        help="Dimension of each attention head.",
     )
     parser.add_argument("--seed", type=int, default=1234, help="RNG seed.")
     parser.add_argument(
-        "--fp8", action="store_true", default=False, help="Enables the te.fp8_autocast() context."
+        "--fp8",
+        action="store_true",
+        default=False,
+        help="Enables the te.fp8_autocast() context.",
     )
     parser.add_argument(
-        "--fp8-output", action="store_true", default=False, help="Get FP8 output from GEMM."
+        "--fp8-output",
+        action="store_true",
+        default=False,
+        help="Get FP8 output from GEMM.",
     )
     parser.add_argument(
         "--p2p", action="store_true", default=False, help="Test overlap with P2P comms."
     )
     parser.add_argument(
-        "--atomic", action="store_true", default=False, help="Test overlap with atomic GEMM."
+        "--atomic",
+        action="store_true",
+        default=False,
+        help="Test overlap with atomic GEMM.",
     )
     parser.add_argument(
         "--aggregate",
@@ -110,7 +123,10 @@ def _parse_args(argv=None, namespace=None):
         help="Set device clock speed to a fixed value via `nvidia-smi`.",
     )
     parser.add_argument(
-        "--std", type=float, default=0.023, help="Standard deviation for input and weight tensors."
+        "--std",
+        type=float,
+        default=0.023,
+        help="Standard deviation for input and weight tensors.",
     )
     parser.add_argument(
         "--tcp-init",
@@ -119,7 +135,10 @@ def _parse_args(argv=None, namespace=None):
         help="Initialize torch.distributed with TcpStore.",
     )
     parser.add_argument(
-        "--init-method", type=str, default=None, help="Set the torch.distributed init method."
+        "--init-method",
+        type=str,
+        default=None,
+        help="Set the torch.distributed init method.",
     )
     parser.add_argument(
         "--bind-to-device",
@@ -143,7 +162,11 @@ def _parse_args(argv=None, namespace=None):
         "--use-cuda-graphs", action="store_true", default=False, help="Use CUDA graphs."
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False, help="Verbose info messages."
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Verbose info messages.",
     )
     opts = parser.parse_args(argv, namespace)
 
@@ -449,7 +472,9 @@ def _main(opts):
             )[0].to(dtype=torch.float32)
             # RS Input: (M, K/P) -> T -> (K/P, M) -> gather -> (K, M) -> T -> (M, K)
             inp_g = torch.transpose(
-                te.distributed.gather_along_first_dim(torch.transpose(inp, 0, 1), tp_group)[0], 0, 1
+                te.distributed.gather_along_first_dim(torch.transpose(inp, 0, 1), tp_group)[0],
+                0,
+                1,
             ).to(dtype=torch.float32)
 
     if opts.bulk_overlap:
@@ -499,7 +524,10 @@ def _main(opts):
             ref2_amax = torch.max(torch.abs(ref2_g))
             fp8_meta.amax_history[1][tex.FP8FwdTensors.GEMM2_OUTPUT].copy_(ref2_amax)
         fp8_meta.scale = _default_sf_compute(
-            fp8_meta.amax_history[1], fp8_meta.scale, fp8_formats[fp8_dtype].value.max_fwd, 1
+            fp8_meta.amax_history[1],
+            fp8_meta.scale,
+            fp8_formats[fp8_dtype].value.max_fwd,
+            1,
         )
         fp8_meta.scale_inv = torch.reciprocal(fp8_meta.scale)
 
@@ -573,7 +601,9 @@ def _main(opts):
         if ub_obj2 is not None:
             ubuf_out2 = ub_obj2.get_ubuf_output(1)
             rs_out2 = torch.empty(
-                (outer_size // tp_size, hidden_size), dtype=torch.bfloat16, device="cuda"
+                (outer_size // tp_size, hidden_size),
+                dtype=torch.bfloat16,
+                device="cuda",
             )
     else:
         if opts.bulk_overlap:
@@ -870,7 +900,12 @@ def _main(opts):
                 numerics_info += f"abs. error = {abs_err} (tol = {atol})"
 
         dist_print(
-            numerics_info, src=0, section=True, info=True, error=numerics_failed, group=tp_group
+            numerics_info,
+            src=0,
+            section=True,
+            info=True,
+            error=numerics_failed,
+            group=tp_group,
         )
 
     dist.barrier(tp_group)

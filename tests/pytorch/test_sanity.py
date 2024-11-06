@@ -166,7 +166,11 @@ def _test_sanity_e2e_cuda_graph(block, dtype, config, fp8_recipe, skip_wgrad):
         requires_grad=True,
     )
     static_target = torch.randn(
-        config.seq_len, config.batch_size, config.hidden_size, device="cuda", dtype=dtype
+        config.seq_len,
+        config.batch_size,
+        config.hidden_size,
+        device="cuda",
+        dtype=dtype,
     )
 
     real_input = torch.rand_like(static_input)
@@ -532,7 +536,14 @@ def test_sanity_linear_with_zero_tokens(dtype, bs, model, fp8_recipe, fp8_model_
 @pytest.mark.parametrize("activation", all_activations)
 @pytest.mark.parametrize("normalization", all_normalizations)
 def test_sanity_layernorm_mlp(
-    dtype, fp8_recipe, model, skip_wgrad, zero_centered_gamma, skip_dgrad, activation, normalization
+    dtype,
+    fp8_recipe,
+    model,
+    skip_wgrad,
+    zero_centered_gamma,
+    skip_dgrad,
+    activation,
+    normalization,
 ):
     config = model_configs[model]
 

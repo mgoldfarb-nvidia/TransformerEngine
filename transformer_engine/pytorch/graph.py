@@ -607,7 +607,10 @@ def make_graphed_callables(
 
         def forward_func(*args, **kwargs):
             with fp8_autocast(
-                enabled=fp8_enabled, calibrating=fp8_calibrating, fp8_recipe=fp8_recipe, _graph=True
+                enabled=fp8_enabled,
+                calibrating=fp8_calibrating,
+                fp8_recipe=fp8_recipe,
+                _graph=True,
             ):
                 outputs = old_forward(*args, **kwargs)
             return outputs

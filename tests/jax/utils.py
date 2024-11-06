@@ -242,9 +242,16 @@ class DenseGeneral(nn.Module):
         axis = _normalize_axes(axis, inputs.ndim)
 
         kernel_shape = tuple(inputs.shape[ax] for ax in axis) + features
-        kernel_param_shape = (np.prod([inputs.shape[ax] for ax in axis]), np.prod(features))
+        kernel_param_shape = (
+            np.prod([inputs.shape[ax] for ax in axis]),
+            np.prod(features),
+        )
         kernel = nn_partitioning.param_with_axes(
-            "kernel", self.kernel_init, kernel_param_shape, jnp.float32, axes=self.kernel_axes
+            "kernel",
+            self.kernel_init,
+            kernel_param_shape,
+            jnp.float32,
+            axes=self.kernel_axes,
         )
 
         kernel = jnp.asarray(kernel, self.dtype)
@@ -337,7 +344,8 @@ class MlpBlock(nn.Module):
         x = functools.reduce(operator.mul, activations)
         # Apply dropout and final dense output projection.
         x = nn.Dropout(
-            rate=self.intermediate_dropout_rate, broadcast_dims=self.intermediate_dropout_dims
+            rate=self.intermediate_dropout_rate,
+            broadcast_dims=self.intermediate_dropout_dims,
         )(
             x, deterministic=deterministic
         )  # Broadcast along length.
@@ -555,7 +563,10 @@ class MultiHeadAttention(nn.Module):
                 )(inputs_kv)
                 query, key, value = jnp.split(
                     qkv_proj,
-                    [self.num_heads * self.head_dim, self.num_heads * self.head_dim * 2],
+                    [
+                        self.num_heads * self.head_dim,
+                        self.num_heads * self.head_dim * 2,
+                    ],
                     axis=-1,
                 )
             else:
@@ -926,7 +937,11 @@ def apply_swa_mask(
     max_seqlen_q = original_mask.shape[-2]
     max_seqlen_kv = original_mask.shape[-1]
     swa_mask = make_swa_mask(
-        max_seqlen_q, max_seqlen_kv, window_size, _attn_mask_type, dtype=original_mask.dtype
+        max_seqlen_q,
+        max_seqlen_kv,
+        window_size,
+        _attn_mask_type,
+        dtype=original_mask.dtype,
     )
     # In swa_mask and original_mask 0 is masked out
     swa_mask_bcast = jnp.broadcast_to(swa_mask, original_mask.shape)

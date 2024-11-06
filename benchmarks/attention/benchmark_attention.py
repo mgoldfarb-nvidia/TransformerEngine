@@ -269,7 +269,11 @@ def main():
             "Fused vs Flash Kernels Speedup (fwd+bwd)",
         ]
     ]
-    a.columns = ["cuDNN fwd+bwd (ms)", "flash-attn fwd+bwd (ms)", "cuDNN vs flash speedup"]
+    a.columns = [
+        "cuDNN fwd+bwd (ms)",
+        "flash-attn fwd+bwd (ms)",
+        "cuDNN vs flash speedup",
+    ]
     print()
     print(a)
 

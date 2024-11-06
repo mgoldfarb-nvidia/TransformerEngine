@@ -13,7 +13,11 @@ import torch
 import torch.nn as nn
 from torch.nn import Parameter
 
-from transformer_engine.pytorch.fp8 import fp8_autocast, FP8GlobalStateManager, fp8_model_init
+from transformer_engine.pytorch.fp8 import (
+    fp8_autocast,
+    FP8GlobalStateManager,
+    fp8_model_init,
+)
 from transformer_engine.pytorch.utils import (
     init_method_normal,
     scaled_init_method_normal,
@@ -35,8 +39,16 @@ from transformer_engine.pytorch import (
     Fp8Unpadding,
 )
 from transformer_engine.pytorch.distributed import checkpoint as te_checkpoint
-from transformer_engine.pytorch.cpp_extensions import fp8_gemm, fp8_grouped_gemm, gemm, grouped_gemm
-from transformer_engine.pytorch.module.base import get_multi_stream_cublas_workspace, get_workspace
+from transformer_engine.pytorch.cpp_extensions import (
+    fp8_gemm,
+    fp8_grouped_gemm,
+    gemm,
+    grouped_gemm,
+)
+from transformer_engine.pytorch.module.base import (
+    get_multi_stream_cublas_workspace,
+    get_workspace,
+)
 from transformer_engine.pytorch.utils import get_device_compute_capability
 import transformer_engine_torch as tex
 
@@ -368,7 +380,14 @@ class TorchSquaredRELU(nn.Module):
 class TorchGroupedLinearWithPadding(nn.Module):
 
     def __init__(
-        self, num_gemms, in_features, out_features, bias, params_dtype, parallel_mode, fp8
+        self,
+        num_gemms,
+        in_features,
+        out_features,
+        bias,
+        params_dtype,
+        parallel_mode,
+        fp8,
     ) -> None:
         super().__init__()
 
@@ -455,7 +474,11 @@ class TorchLayerNormMLP(nn.Module):
 
 class TorchGPT(nn.Module):
     def __init__(
-        self, hidden_size: int, eps: float, num_attention_heads: int, parallel_attention_mlp: bool
+        self,
+        hidden_size: int,
+        eps: float,
+        num_attention_heads: int,
+        parallel_attention_mlp: bool,
     ):
         super().__init__()
         self.ln = nn.LayerNorm(hidden_size, eps=eps)
@@ -654,10 +677,22 @@ def test_gpt_full_activation_recompute(dtype, bs, model, fp8, fp8_model_params, 
         os.environ["NVTE_BIAS_GELU_NVFUSION"] = "0"
 
     outputs, names = _test_e2e_full_recompute(
-        bs, dtype, config, fp8, fp8_model_params, recompute=False, use_reentrant=use_reentrant
+        bs,
+        dtype,
+        config,
+        fp8,
+        fp8_model_params,
+        recompute=False,
+        use_reentrant=use_reentrant,
     )
     outputs_recompute, _ = _test_e2e_full_recompute(
-        bs, dtype, config, fp8, fp8_model_params, recompute=True, use_reentrant=use_reentrant
+        bs,
+        dtype,
+        config,
+        fp8,
+        fp8_model_params,
+        recompute=True,
+        use_reentrant=use_reentrant,
     )
 
     if not use_reentrant:
@@ -1012,7 +1047,8 @@ def _test_dpa_accuracy(block, bs, dtype, config):
     reset_rng_states()
 
     mask = torch.triu(
-        torch.ones(config.seq_len, config.seq_len, dtype=torch.bool, device="cuda"), diagonal=1
+        torch.ones(config.seq_len, config.seq_len, dtype=torch.bool, device="cuda"),
+        diagonal=1,
     )
     query, key, value = [
         torch.randn(
@@ -1504,7 +1540,8 @@ def _test_padding_grouped_linear_accuracy(block, num_gemms, bs, dtype, config, f
 
     def _unpad_tensor_for_fp8(padded_hidden_states, actual_tokens_per_expert, tokens_per_expert):
         inputmats = torch.split(
-            padded_hidden_states.view(-1, padded_hidden_states.shape[-1]), tokens_per_expert
+            padded_hidden_states.view(-1, padded_hidden_states.shape[-1]),
+            tokens_per_expert,
         )
         hidden_states = torch.cat(
             [
@@ -1639,7 +1676,12 @@ def _test_gpt_e2e_cuda_graph(block, bs, dtype, config, graph):
 
     # Placeholders used for graph capture.
     static_input = torch.randn(
-        config.seq_len, bs, config.hidden_size, device="cuda", dtype=dtype, requires_grad=True
+        config.seq_len,
+        bs,
+        config.hidden_size,
+        device="cuda",
+        dtype=dtype,
+        requires_grad=True,
     )
     static_target = torch.randn(config.seq_len, bs, config.hidden_size, device="cuda", dtype=dtype)
 
@@ -1878,7 +1920,9 @@ def test_transformer_layer_hidden_states_format(dtype, bs, model):
     )
 
     for (n1, p1), (n2, p2), (n3, p3) in zip(
-        block_bshd.named_parameters(), block_sbhd.named_parameters(), block_thd.named_parameters()
+        block_bshd.named_parameters(),
+        block_sbhd.named_parameters(),
+        block_thd.named_parameters(),
     ):
         assert torch.all(torch.eq(p1, p2) & torch.eq(p1, p3)), f"{n1}, {n2} and {n3} not identical"
 

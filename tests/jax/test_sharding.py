@@ -12,7 +12,16 @@ LOGICAL_RULES = [
     [(("a1", None), ("a2", "ma2"), ("a3", ("ma31", "ma32"))), True],
     [(("a1", None), ("a2", "ma2"), ("a3", "ma31"), ("a3", "ma32")), False],
     [(("a1", None), ("a2", "ma2"), ("batch", "batch_1200234")), True],
-    [(("a1", None), ("a2", "ma2"), ("a2", "ma1"), ("batch", "model"), ("batch", "data")), True],
+    [
+        (
+            ("a1", None),
+            ("a2", "ma2"),
+            ("a2", "ma1"),
+            ("batch", "model"),
+            ("batch", "data"),
+        ),
+        True,
+    ],
 ]
 
 MeshS = [

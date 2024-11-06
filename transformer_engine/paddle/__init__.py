@@ -41,7 +41,9 @@ def _load_library():
                 module_name,
             )
 
-    from transformer_engine import transformer_engine_paddle  # pylint: disable=unused-import
+    from transformer_engine import (
+        transformer_engine_paddle,
+    )  # pylint: disable=unused-import
 
 
 _load_library()

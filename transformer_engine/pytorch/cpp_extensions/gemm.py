@@ -52,7 +52,10 @@ def fp8_gemm(
     """TN layout GEMM with fp8 inputs."""
 
     empty_tensor = _empty_tensor()
-    if D_dtype is not None and D_dtype in [tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2]:
+    if D_dtype is not None and D_dtype in [
+        tex.DType.kFloat8E4M3,
+        tex.DType.kFloat8E5M2,
+    ]:
         assert fp8_meta_tensor is not None and out_index is not None
     assert_dim_for_fp8_exec(A)
     assert_dim_for_fp8_exec(B)
@@ -94,7 +97,7 @@ def fp8_gemm(
         out,
         empty_tensor if out_index is None else fp8_meta_tensor.scale[out_index],
         out_dtype,
-        empty_tensor if out_index is None else fp8_meta_tensor.amax_history[0][out_index],
+        (empty_tensor if out_index is None else fp8_meta_tensor.amax_history[0][out_index]),
         bias if use_bias else empty_tensor,
         bias_dtype,
         gelu_input,  # this is pre_gelu_out
@@ -422,7 +425,10 @@ def fp8_grouped_gemm(
 
     empty_tensor = _empty_tensor()
     empty_tensors = [empty_tensor] * num_gemms
-    if D_dtype is not None and D_dtype in [tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2]:
+    if D_dtype is not None and D_dtype in [
+        tex.DType.kFloat8E4M3,
+        tex.DType.kFloat8E5M2,
+    ]:
         assert fp8_meta_tensor is not None and out_offset is not None
     for a, b in zip(A, B):
         assert_dim_for_fp8_exec(a)

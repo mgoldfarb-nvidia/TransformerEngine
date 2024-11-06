@@ -258,7 +258,8 @@ def train_and_evaluate(args):
         label_shape = [args.batch_size]
 
         with te.fp8_autocast(
-            args.use_fp8, mesh_resource=te.MeshResource(DEVICE_DP_AXIS, None, None, None)
+            args.use_fp8,
+            mesh_resource=te.MeshResource(DEVICE_DP_AXIS, None, None, None),
         ):
             encoder = Net(num_embed)
             inputs = jnp.zeros(input_shape, dtype=jnp.int32)
@@ -300,7 +301,13 @@ def train_and_evaluate(args):
             out_shardings = (state_sharding, None, None, None)
             jit_train_step = jax.jit(train_step, in_shardings, out_shardings)
 
-            in_shardings = (state_sharding, inputs_sharding, masks_sharding, labels_sharding, None)
+            in_shardings = (
+                state_sharding,
+                inputs_sharding,
+                masks_sharding,
+                labels_sharding,
+                None,
+            )
             out_shardings = (None, None)
             jit_eval_step = jax.jit(eval_step, in_shardings, out_shardings)
 

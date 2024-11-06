@@ -185,7 +185,10 @@ class SynchronizedGroupOffloadHandler(OffloadHandler):
     """
 
     def __init__(
-        self, num_offload_group, tensor_need_offloading_checker=(lambda _: True), debug=False
+        self,
+        num_offload_group,
+        tensor_need_offloading_checker=(lambda _: True),
+        debug=False,
     ) -> None:
         super().__init__()
 

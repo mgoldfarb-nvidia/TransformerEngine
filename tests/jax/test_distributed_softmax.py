@@ -71,7 +71,11 @@ class TestDistributedSoftmax:
     @pytest.mark.parametrize("data_shape", [[32, 12, 128, 128], [64, 16, 1024, 1024]])
     @pytest.mark.parametrize(
         "softmax_type",
-        [SoftmaxType.SCALED, SoftmaxType.SCALED_MASKED, SoftmaxType.SCALED_UPPER_TRIANG_MASKED],
+        [
+            SoftmaxType.SCALED,
+            SoftmaxType.SCALED_MASKED,
+            SoftmaxType.SCALED_UPPER_TRIANG_MASKED,
+        ],
     )
     @pytest.mark.parametrize("scale_factor", [1.0, 3.0])
     @pytest.mark.parametrize("dtype", DTYPES)

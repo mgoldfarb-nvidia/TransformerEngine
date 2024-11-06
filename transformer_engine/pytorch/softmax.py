@@ -27,7 +27,8 @@ def _get_default_causal_mask(mask_type: str, sq: int, sk: int) -> torch.Tensor:
     if matrix_identifiers not in _default_causal_mask:
         diagonal_offset = sk - sq + 1 if "bottom_right" in mask_type else 1
         _default_causal_mask[matrix_identifiers] = torch.triu(
-            torch.ones(sq, sk, dtype=torch.bool, device="cuda"), diagonal=diagonal_offset
+            torch.ones(sq, sk, dtype=torch.bool, device="cuda"),
+            diagonal=diagonal_offset,
         )
     return _default_causal_mask[matrix_identifiers]
 

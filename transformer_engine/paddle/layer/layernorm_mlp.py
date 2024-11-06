@@ -13,7 +13,12 @@ from paddle.nn.initializer import Constant
 
 from .base import TransformerEngineBaseLayer
 from .layernorm_linear import _apply_normalization_fwd, _apply_normalization_bwd
-from .linear import _linear_fwd_fp8, _linear_fwd_non_fp8, _linear_bwd_fp8, _linear_bwd_non_fp8
+from .linear import (
+    _linear_fwd_fp8,
+    _linear_fwd_non_fp8,
+    _linear_bwd_fp8,
+    _linear_bwd_non_fp8,
+)
 from ..constants import TE_DType, FP8FwdTensors, FP8BwdTensors, dist_group_type
 from ..cpp_extensions import (
     cast_from_fp8,
@@ -430,7 +435,10 @@ class _LayerNormMLP(paddle.autograd.PyLayer):
             assert_dim_for_fp8_forward_exec(fc2_weight)
 
         # only support gelu for now
-        assert activation in ["gelu", "swiglu"], "Only gelu and swiglu are supported for now"
+        assert activation in [
+            "gelu",
+            "swiglu",
+        ], "Only gelu and swiglu are supported for now"
 
         # LayerNorm Fwd + FP8 Cast
         (
@@ -543,7 +551,11 @@ class _LayerNormMLP(paddle.autograd.PyLayer):
         ctx, *grad_outputs: Tuple[paddle.Tensor, ...]
     ) -> Tuple[Union[paddle.Tensor, None], ...]:
         with TransformerEngineBaseLayer.prepare_backward(
-            ctx.fp8_enabled, ctx.fp8_meta, ctx.tp_group, ctx.tp_size, name="_LayerNormMLP"
+            ctx.fp8_enabled,
+            ctx.fp8_meta,
+            ctx.tp_group,
+            ctx.tp_size,
+            name="_LayerNormMLP",
         ):
             (  # pylint: disable=unbalanced-tuple-unpacking
                 inputmat,
@@ -746,7 +758,10 @@ class LayerNormMLP(TransformerEngineBaseLayer):
         self.ffn_hidden_size = ffn_hidden_size
         self.eps = eps
         self.normalization = normalization
-        assert normalization in ["LayerNorm", "RMSNorm"], "Normalization type not supported"
+        assert normalization in [
+            "LayerNorm",
+            "RMSNorm",
+        ], "Normalization type not supported"
         self.activation = activation
         self.return_layernorm_output = return_layernorm_output
         self.zero_centered_gamma = zero_centered_gamma
@@ -814,7 +829,10 @@ class LayerNormMLP(TransformerEngineBaseLayer):
                 is_bias=False,
             )
         set_weight_tensor_dist_attr(
-            self.fc1_weight, self.tensor_parallel, parallel_mode="column", backend=self.backend
+            self.fc1_weight,
+            self.tensor_parallel,
+            parallel_mode="column",
+            backend=self.backend,
         )
         self.fp8_weights.append(self.fc1_weight)
 
@@ -846,7 +864,10 @@ class LayerNormMLP(TransformerEngineBaseLayer):
             is_bias=False,
         )
         set_weight_tensor_dist_attr(
-            self.fc2_weight, self.tensor_parallel, parallel_mode="row", backend=self.backend
+            self.fc2_weight,
+            self.tensor_parallel,
+            parallel_mode="row",
+            backend=self.backend,
         )
         self.fp8_weights.append(self.fc2_weight)
 
@@ -918,7 +939,7 @@ class LayerNormMLP(TransformerEngineBaseLayer):
                 self.activation_dtype,
                 self.return_layernorm_output,
                 paddle.is_grad_enabled(),
-                self.fwd_ln_sm_margin if paddle.is_grad_enabled() else self.inf_ln_sm_margin,
+                (self.fwd_ln_sm_margin if paddle.is_grad_enabled() else self.inf_ln_sm_margin),
                 self.bwd_ln_sm_margin,
                 self.zero_centered_gamma,
                 self.normalization,
@@ -975,7 +996,9 @@ class LayerNormMLP(TransformerEngineBaseLayer):
         act_func = get_paddle_act_func(self.activation)
         act_out = act_func(fc1_out)
         out = F.linear(
-            act_out, self.fc2_weight, self.fc2_bias if self.gemm_bias_fused_add else None
+            act_out,
+            self.fc2_weight,
+            self.fc2_bias if self.gemm_bias_fused_add else None,
         )
         if self.set_parallel_mode and self.tensor_parallel:
             out, _ = allreduce(out, self.tp_group)

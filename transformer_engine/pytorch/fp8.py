@@ -25,9 +25,15 @@ def check_fp8_support() -> Tuple[bool, str]:
     if get_device_compute_capability() >= (9, 0):  # hopper and above
         return True, ""
     if get_device_compute_capability() < (8, 9):  # pre-ada
-        return False, "Device compute capability 8.9 or higher required for FP8 execution."
+        return (
+            False,
+            "Device compute capability 8.9 or higher required for FP8 execution.",
+        )
     if tex.get_cublasLt_version() < 120103:
-        return False, "CublasLt version 12.1.3.x or higher required for FP8 execution on Ada."
+        return (
+            False,
+            "CublasLt version 12.1.3.x or higher required for FP8 execution on Ada.",
+        )
     if float(torch.version.cuda) < 12.1:
         return False, "Cuda version 12.1 or higher required for FP8 execution on Ada."
     return True, ""
@@ -227,7 +233,10 @@ class FP8GlobalStateManager:
                     cls.fp8_param_to_autocast[w] = autocast_key
 
             key = cls.get_key_in_buffer(
-                forward, fp8_weights is not None, fp8_meta["recipe"], fp8_meta["fp8_group"]
+                forward,
+                fp8_weights is not None,
+                fp8_meta["recipe"],
+                fp8_meta["fp8_group"],
             )
 
             if key not in cls.global_amax_buffer:
@@ -287,7 +296,9 @@ class FP8GlobalStateManager:
         return cls.FP8_DISTRIBUTED_GROUP
 
     @classmethod
-    def get_fp8_autocast_state(cls) -> Tuple[bool, bool, DelayedScaling, dist_group_type, bool]:
+    def get_fp8_autocast_state(
+        cls,
+    ) -> Tuple[bool, bool, DelayedScaling, dist_group_type, bool]:
         """FP8 autocast state getter"""
         return (
             cls.FP8_ENABLED,
@@ -382,7 +393,11 @@ class FP8GlobalStateManager:
                     cls.global_scale_inv_buffer[buffer_key],
                 ):
                     _amax_and_scale_update(
-                        amax_history, scale, scale_inv, get_fp8_max(recipe, forward), recipe
+                        amax_history,
+                        scale,
+                        scale_inv,
+                        get_fp8_max(recipe, forward),
+                        recipe,
                     )
 
     @classmethod

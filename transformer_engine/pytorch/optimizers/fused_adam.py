@@ -566,7 +566,9 @@ class FusedAdam(torch.optim.Optimizer):
                             p_main_of_f16_model,
                         ]
                         apply_multi_tensor_adam(
-                            self.multi_tensor_adam_capturable_master, tensor_lists, inv_scale
+                            self.multi_tensor_adam_capturable_master,
+                            tensor_lists,
+                            inv_scale,
                         )
                     if len(p_f32_model) > 0:
                         tensor_lists = [
@@ -580,12 +582,22 @@ class FusedAdam(torch.optim.Optimizer):
                         )
                 else:
                     if len(p_f16_model) > 0:
-                        tensor_lists = [g_of_f16_model, p_f16_model, m_of_f16_model, v_of_f16_model]
+                        tensor_lists = [
+                            g_of_f16_model,
+                            p_f16_model,
+                            m_of_f16_model,
+                            v_of_f16_model,
+                        ]
                         apply_multi_tensor_adam(
                             self.multi_tensor_adam_capturable, tensor_lists, inv_scale
                         )
                     if len(p_f32_model) > 0:
-                        tensor_lists = [g_of_f32_model, p_f32_model, m_of_f32_model, v_of_f32_model]
+                        tensor_lists = [
+                            g_of_f32_model,
+                            p_f32_model,
+                            m_of_f32_model,
+                            v_of_f32_model,
+                        ]
                         apply_multi_tensor_adam(
                             self.multi_tensor_adam_capturable, tensor_lists, inv_scale
                         )
@@ -622,10 +634,20 @@ class FusedAdam(torch.optim.Optimizer):
                     apply_multi_tensor_adam(self.multi_tensor_adam, tensor_lists)
             else:  # self.master_weights=False and self.capturable=False
                 if len(p_f16_model) > 0:
-                    tensor_lists = [g_of_f16_model, p_f16_model, m_of_f16_model, v_of_f16_model]
+                    tensor_lists = [
+                        g_of_f16_model,
+                        p_f16_model,
+                        m_of_f16_model,
+                        v_of_f16_model,
+                    ]
                     apply_multi_tensor_adam(self.multi_tensor_adam, tensor_lists)
                 if len(p_f32_model) > 0:
-                    tensor_lists = [g_of_f32_model, p_f32_model, m_of_f32_model, v_of_f32_model]
+                    tensor_lists = [
+                        g_of_f32_model,
+                        p_f32_model,
+                        m_of_f32_model,
+                        v_of_f32_model,
+                    ]
                     apply_multi_tensor_adam(self.multi_tensor_adam, tensor_lists)
 
             # Scaling

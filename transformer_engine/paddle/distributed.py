@@ -185,7 +185,11 @@ def reduce_scatter(
     output_shape[0] = output_shape[0] // parallelism
     output = paddle.empty(shape=output_shape, dtype=input_.dtype)
     wait_handle = paddle.distributed.stream.reduce_scatter(
-        output, input_, op=paddle.distributed.ReduceOp.SUM, group=tp_group, sync_op=sync_op
+        output,
+        input_,
+        op=paddle.distributed.ReduceOp.SUM,
+        group=tp_group,
+        sync_op=sync_op,
     )
     if sync_op:
         return output, None

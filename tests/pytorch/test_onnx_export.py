@@ -306,7 +306,13 @@ def validate_result(
     input_feed = create_ort_input_dict(ort_s, inps)
     onnx_outputs = ort_s.run(None, input_feed=input_feed)
     compare_outputs(
-        onnx_outputs, te_outputs, atol, rtol, max_errors_printed, allow_cnt_errors, fname
+        onnx_outputs,
+        te_outputs,
+        atol,
+        rtol,
+        max_errors_printed,
+        allow_cnt_errors,
+        fname,
     )
 
 
@@ -440,7 +446,10 @@ def test_export_cast_ops(
     in_features = 64
     hidden_size = 256
     inp = torch.randn(
-        hidden_size, in_features, device="cuda", dtype=torch.float if fake_bf16_io else precision
+        hidden_size,
+        in_features,
+        device="cuda",
+        dtype=torch.float if fake_bf16_io else precision,
     )
     high_prec_str = dtype2str(precision, fake_bf16_io=fake_bf16_io)
     fname = f"te.cast_fp8_{scale_factor}{high_prec_str}.onnx"
@@ -489,7 +498,10 @@ def test_export_gelu_fp8(scale_factor: float, precision: torch.dtype, atol: floa
     in_features = 64
     hidden_size = 256
     inp = torch.randn(
-        hidden_size, in_features, device="cuda", dtype=torch.float if fake_bf16_io else precision
+        hidden_size,
+        in_features,
+        device="cuda",
+        dtype=torch.float if fake_bf16_io else precision,
     )
     high_prec_str = dtype2str(precision, fake_bf16_io=fake_bf16_io)
     fname = f"te.gelu_fp8_{scale_factor}{high_prec_str}.onnx"
@@ -674,7 +686,10 @@ def test_export_layernorm(
             dtype = torch.float if fake_bf16_io else precision
             self.ln = (
                 te.LayerNorm(
-                    inp_shape[1], eps, params_dtype=dtype, zero_centered_gamma=zero_centered_gamma
+                    inp_shape[1],
+                    eps,
+                    params_dtype=dtype,
+                    zero_centered_gamma=zero_centered_gamma,
                 )
                 .eval()
                 .cuda()
@@ -689,10 +704,14 @@ def test_export_layernorm(
             super().__init__()
             normalized_shape = torch.Size(inp.shape[1:])
             self.weight = torch.randn(
-                *normalized_shape, device="cuda", dtype=torch.float32 if fake_bf16_io else precision
+                *normalized_shape,
+                device="cuda",
+                dtype=torch.float32 if fake_bf16_io else precision,
             )
             self.bias = torch.zeros(
-                *normalized_shape, device="cuda", dtype=torch.float32 if fake_bf16_io else precision
+                *normalized_shape,
+                device="cuda",
+                dtype=torch.float32 if fake_bf16_io else precision,
             )
             self.eps = 1e-6  # An arbitrary small value
 
@@ -730,7 +749,13 @@ def test_export_layernorm(
     serialize_inputs_outputs(fname, inp, te_outputs)
     if fake_bf16_io or precision != torch.bfloat16:
         validate_result(
-            fname, inp, model, atol=atol, is_fp8=use_fp8, allow_cnt_errors=3, te_outputs=te_outputs
+            fname,
+            inp,
+            model,
+            atol=atol,
+            is_fp8=use_fp8,
+            allow_cnt_errors=3,
+            te_outputs=te_outputs,
         )
 
 
@@ -775,7 +800,10 @@ def test_export_rmsnorm(
             dtype = torch.float if fake_bf16_io else precision
             self.ln = (
                 te.RMSNorm(
-                    inp_shape[1], eps, params_dtype=dtype, zero_centered_gamma=zero_centered_gamma
+                    inp_shape[1],
+                    eps,
+                    params_dtype=dtype,
+                    zero_centered_gamma=zero_centered_gamma,
                 )
                 .eval()
                 .cuda()
@@ -790,7 +818,9 @@ def test_export_rmsnorm(
             super().__init__()
             normalized_shape = torch.Size(inp.shape[1:])
             self.weight = torch.randn(
-                *normalized_shape, device="cuda", dtype=torch.float32 if fake_bf16_io else precision
+                *normalized_shape,
+                device="cuda",
+                dtype=torch.float32 if fake_bf16_io else precision,
             )
             self.eps = 1e-6  # An arbitrary small value
 
@@ -827,7 +857,13 @@ def test_export_rmsnorm(
     serialize_inputs_outputs(fname, inp, te_outputs)
     if fake_bf16_io or precision != torch.bfloat16:
         validate_result(
-            fname, inp, model, atol=atol, is_fp8=use_fp8, allow_cnt_errors=3, te_outputs=te_outputs
+            fname,
+            inp,
+            model,
+            atol=atol,
+            is_fp8=use_fp8,
+            allow_cnt_errors=3,
+            te_outputs=te_outputs,
         )
 
 
@@ -1044,14 +1080,46 @@ def test_export_layernorm_mlp(
 @pytest.mark.parametrize(
     "precision,      use_mask, attn_mask_type",
     [
-        (torch.float32, True, "arbitrary"),  # calls forward_torch_softmax (apply user mask)
-        (torch.float32, False, "no_mask"),  # calls forward_torch_softmax (apply no mask)
-        (torch.float16, False, "causal"),  # calls forward_torch_softmax (apply dynamic onnx mask)
-        (torch.float16, True, "arbitrary"),  # calls forward_torch_softmax (apply user mask)
-        (torch.float16, False, "no_mask"),  # calls forward_torch_softmax (apply no mask)
-        (torch.bfloat16, False, "causal"),  # calls forward_torch_softmax (apply dynamic onnx mask)
-        (torch.bfloat16, True, "arbitrary"),  # calls forward_torch_softmax (apply user mask)
-        (torch.bfloat16, False, "no_mask"),  # calls forward_torch_softmax (apply no mask)
+        (
+            torch.float32,
+            True,
+            "arbitrary",
+        ),  # calls forward_torch_softmax (apply user mask)
+        (
+            torch.float32,
+            False,
+            "no_mask",
+        ),  # calls forward_torch_softmax (apply no mask)
+        (
+            torch.float16,
+            False,
+            "causal",
+        ),  # calls forward_torch_softmax (apply dynamic onnx mask)
+        (
+            torch.float16,
+            True,
+            "arbitrary",
+        ),  # calls forward_torch_softmax (apply user mask)
+        (
+            torch.float16,
+            False,
+            "no_mask",
+        ),  # calls forward_torch_softmax (apply no mask)
+        (
+            torch.bfloat16,
+            False,
+            "causal",
+        ),  # calls forward_torch_softmax (apply dynamic onnx mask)
+        (
+            torch.bfloat16,
+            True,
+            "arbitrary",
+        ),  # calls forward_torch_softmax (apply user mask)
+        (
+            torch.bfloat16,
+            False,
+            "no_mask",
+        ),  # calls forward_torch_softmax (apply no mask)
     ],
 )
 def test_export_core_attention(
@@ -1094,7 +1162,13 @@ def test_export_core_attention(
     if precision in (torch.bfloat16,):
         return
     validate_result(
-        fname, inp, model, is_fp8=True, atol=1e-2, input_names=input_names, te_outputs=te_outputs
+        fname,
+        inp,
+        model,
+        is_fp8=True,
+        atol=1e-2,
+        input_names=input_names,
+        te_outputs=te_outputs,
     )
 
 
@@ -1164,7 +1238,12 @@ def test_export_multihead_attention(
     if use_mask and attn_mask_type != "causal":
         # Generate a random mask with 50% probability for 0 or 1.
         probs = 0.5 * torch.ones(
-            batch_size, 1, sequence_length, sequence_length, device="cuda", dtype=precision
+            batch_size,
+            1,
+            sequence_length,
+            sequence_length,
+            device="cuda",
+            dtype=precision,
         )
         attention_mask = torch.bernoulli(probs).to("cuda", dtype=torch.bool)
 
@@ -1211,7 +1290,11 @@ def test_export_multihead_attention(
     )
     te_outputs = te_infer(model, inp_context, is_fp8=use_fp8)
     serialize_inputs_outputs(
-        fname, inp_context, te_outputs, input_names=input_names, output_names=output_names
+        fname,
+        inp_context,
+        te_outputs,
+        input_names=input_names,
+        output_names=output_names,
     )
     if precision in (torch.bfloat16,):
         return
@@ -1319,7 +1402,12 @@ def test_export_transformer_layer(
     if use_mask and attn_mask_type != "causal":
         # Generate a random mask with 50% probability for 0 or 1.
         probs = 0.5 * torch.ones(
-            batch_size, 1, sequence_length, sequence_length, device="cuda", dtype=precision
+            batch_size,
+            1,
+            sequence_length,
+            sequence_length,
+            device="cuda",
+            dtype=precision,
         )
         attention_mask = torch.bernoulli(probs).to("cuda", dtype=torch.bool)
     inp = (input_tensor, attention_mask)
@@ -1348,7 +1436,13 @@ def test_export_transformer_layer(
         return
     atol = 5e-1 if use_fp8 else (5e-1 if activation == "swiglu" else 1e-3)
     validate_result(
-        fname, inp, model, atol=atol, is_fp8=use_fp8, input_names=input_names, te_outputs=te_outputs
+        fname,
+        inp,
+        model,
+        atol=atol,
+        is_fp8=use_fp8,
+        input_names=input_names,
+        te_outputs=te_outputs,
     )
 
 
@@ -1425,7 +1519,7 @@ def test_export_gemm_layernorm(
                 self.meta,
                 self.fp8_tensor,
                 self.fp8_type,
-                tex.DType.kFloat32 if precision == torch.float32 else tex.DType.kFloat16,
+                (tex.DType.kFloat32 if precision == torch.float32 else tex.DType.kFloat16),
             )
             return x
 

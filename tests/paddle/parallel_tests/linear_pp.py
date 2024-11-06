@@ -206,7 +206,8 @@ class TestLinearPipelineParallel(unittest.TestCase):
 
         for i in range(self.iter):
             inp = paddle.to_tensor(
-                np.random.normal(size=[self.batch_size, self.in_features]), dtype=self.global_dtype
+                np.random.normal(size=[self.batch_size, self.in_features]),
+                dtype=self.global_dtype,
             )
             label = paddle.to_tensor(np.random.randint(self.in_features, size=[self.batch_size, 1]))
             loss_te = pipe_model.train_batch([inp, label], optimizer_te)

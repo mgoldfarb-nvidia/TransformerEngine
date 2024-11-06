@@ -25,7 +25,11 @@ from jax.ad_checkpoint import checkpoint_name
 from .module import DenseGeneral, LayerNormDenseGeneral, LayerNormMLP
 from .module import LayerNorm, Softmax
 from ..attention import AttnBiasType, AttnMaskType, QKVLayout
-from ..attention import is_fused_attn_kernel_available, make_swa_mask, canonicalize_attn_mask_type
+from ..attention import (
+    is_fused_attn_kernel_available,
+    make_swa_mask,
+    canonicalize_attn_mask_type,
+)
 from ..attention import fused_attn
 from ..softmax import SoftmaxType
 from ..sharding import num_of_devices
@@ -215,7 +219,10 @@ class _UnfusedDotProductAttention(nn.Module):  # pylint: disable=too-few-public-
             if mask is not None:
                 mask = apply_swa_mask(attn_mask_type, mask)
             # Currently cuDNN backend only supports SWA for causal/padding_causal, follow this
-            if attn_mask_type in [AttnMaskType.CAUSAL_MASK, AttnMaskType.PADDING_CAUSAL_MASK]:
+            if attn_mask_type in [
+                AttnMaskType.CAUSAL_MASK,
+                AttnMaskType.PADDING_CAUSAL_MASK,
+            ]:
                 return SoftmaxType.SCALED_UPPER_TRIANG_MASKED, mask
             if attn_mask_type in [AttnMaskType.NO_MASK, AttnMaskType.PADDING_MASK]:
                 if mask is not None:
@@ -616,7 +623,15 @@ class DotProductAttention(nn.Module):  # pylint: disable=too-few-public-methods
                 scale_factor=scale_factor,
                 transpose_batch_sequence=self.transpose_batch_sequence,
                 window_size=self.window_size,
-            )(query, key, value, mask, bias, dropout_rng=dropout_rng, deterministic=deterministic)
+            )(
+                query,
+                key,
+                value,
+                mask,
+                bias,
+                dropout_rng=dropout_rng,
+                deterministic=deterministic,
+            )
         else:
             x = _FusedDotProductAttention(
                 attention_dropout=self.attention_dropout,
@@ -629,7 +644,15 @@ class DotProductAttention(nn.Module):  # pylint: disable=too-few-public-methods
                 window_size=self.window_size,
                 context_parallel_causal_load_balanced=self.context_parallel_causal_load_balanced,
                 context_parallel_axis=self.context_parallel_axis,
-            )(query, key, value, mask, bias, dropout_rng=dropout_rng, deterministic=deterministic)
+            )(
+                query,
+                key,
+                value,
+                mask,
+                bias,
+                dropout_rng=dropout_rng,
+                deterministic=deterministic,
+            )
 
         return x
 
@@ -1069,7 +1092,10 @@ class MultiHeadAttention(nn.Module):  # pylint: disable=too-few-public-methods
             *generate_batch_seqlen_logical_axes(self.enable_sequence_parallel),
             HIDDEN_AXES,
         )
-        inputs_logical_axes_no_sp = (*generate_batch_seqlen_logical_axes(False), HIDDEN_AXES)
+        inputs_logical_axes_no_sp = (
+            *generate_batch_seqlen_logical_axes(False),
+            HIDDEN_AXES,
+        )
 
         inputs_q = with_sharding_constraint_by_logical_axes(inputs_q, inputs_logical_axes_maybe_sp)
 
@@ -1270,7 +1296,8 @@ class MultiHeadAttention(nn.Module):  # pylint: disable=too-few-public-methods
                 cache_index.value = cache_index.value + 1
 
                 mask = combine_masks(
-                    mask, jnp.broadcast_to(jnp.arange(length) > cur_index, (batch, 1, 1, length))
+                    mask,
+                    jnp.broadcast_to(jnp.arange(length) > cur_index, (batch, 1, 1, length)),
                 )
 
                 if bias is not None:
@@ -1289,14 +1316,24 @@ class MultiHeadAttention(nn.Module):  # pylint: disable=too-few-public-methods
             qkv_proj = qkv_proj.reshape(
                 *qkv_proj.shape[:2], 3, self.num_attention_heads, self.head_dim
             )
-            qkv_sharding_constraint = (*LEADING_AXES, JOINED_AXES, HEAD_AXES, HIDDEN_AXES)
+            qkv_sharding_constraint = (
+                *LEADING_AXES,
+                JOINED_AXES,
+                HEAD_AXES,
+                HIDDEN_AXES,
+            )
             qkv_proj = with_sharding_constraint_by_logical_axes(qkv_proj, qkv_sharding_constraint)
             dpa_args = [qkv_proj, None, None]
         elif qkv_layout == QKVLayout.BSHD_BS2HD:
             query = query.reshape(*query.shape[:2], self.num_attention_heads, self.head_dim)
             kv_proj = kv_proj.reshape(*kv_proj.shape[:2], 2, self.num_gqa_groups, self.head_dim)
             q_sharding_constraint = (*LEADING_AXES, HEAD_AXES, HIDDEN_AXES)
-            kv_sharding_constraint = (*LEADING_AXES, JOINED_AXES, HEAD_AXES, HIDDEN_AXES)
+            kv_sharding_constraint = (
+                *LEADING_AXES,
+                JOINED_AXES,
+                HEAD_AXES,
+                HIDDEN_AXES,
+            )
             query = with_sharding_constraint_by_logical_axes(query, q_sharding_constraint)
             kv_proj = with_sharding_constraint_by_logical_axes(kv_proj, kv_sharding_constraint)
             dpa_args = [query, kv_proj, None]
@@ -1821,7 +1858,14 @@ class TransformerLayer(nn.Module):  # pylint: disable=too-few-public-methods
             bias_init=self.bias_init,
             name=mha_name,
             window_size=self.window_size,
-        )(inputs, inputs, attention_mask, attn_bias, deterministic=deterministic, decode=decode)
+        )(
+            inputs,
+            inputs,
+            attention_mask,
+            attn_bias,
+            deterministic=deterministic,
+            decode=decode,
+        )
 
         def hidden_dropout(x, deterministic):
             assert isinstance(self.hidden_dropout_dims, Sequence)
@@ -1950,7 +1994,10 @@ class TransformerLayer(nn.Module):  # pylint: disable=too-few-public-methods
             low_rank_adaptation_alpha=self.low_rank_adaptation_alpha,
             layernorm_input_axes=(*generate_batch_seqlen_logical_axes(), HIDDEN_AXES),
             dot_1_input_axes=(*generate_batch_seqlen_logical_axes(False), HIDDEN_AXES),
-            dot_2_input_axes=(*generate_batch_seqlen_logical_axes(False), HIDDEN_TP_AXES),
+            dot_2_input_axes=(
+                *generate_batch_seqlen_logical_axes(False),
+                HIDDEN_TP_AXES,
+            ),
             name="mlp",
         )(mlp_input, deterministic=deterministic)
 

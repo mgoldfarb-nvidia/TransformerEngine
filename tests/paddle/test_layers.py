@@ -101,7 +101,14 @@ class TestLinear:
     @pytest.mark.parametrize("no_wgrad", [True, False])
     @pytest.mark.parametrize("activation_dtype", ["bfloat16", "float32"])
     def test_linear_bf16(
-        bs, in_features, out_features, has_bias, no_dbias, no_dgrad, no_wgrad, activation_dtype
+        bs,
+        in_features,
+        out_features,
+        has_bias,
+        no_dbias,
+        no_dgrad,
+        no_wgrad,
+        activation_dtype,
     ):
         """
         Test BF16 Linear
@@ -116,7 +123,10 @@ class TestLinear:
         paddle.set_default_dtype(activation_dtype)
         layer_te = te.Linear(in_features, out_features, bias_attr=None if has_bias else False)
         layer_pd = te.Linear(
-            in_features, out_features, bias_attr=None if has_bias else False, backend="paddle"
+            in_features,
+            out_features,
+            bias_attr=None if has_bias else False,
+            backend="paddle",
         )
         layer_pd.weight.copy_(layer_te.weight.T, True)
         if has_bias:
@@ -274,7 +284,10 @@ def test_layernorm_bf16(bs, hidden_size, has_bias, no_dbias, no_dgrad, no_wgrad,
     paddle.set_default_dtype(activation_dtype)
     layer_te = te.LayerNorm(hidden_size=hidden_size, eps=eps, bias_attr=None if has_bias else False)
     layer_pd = te.LayerNorm(
-        hidden_size=hidden_size, eps=eps, bias_attr=None if has_bias else False, backend="paddle"
+        hidden_size=hidden_size,
+        eps=eps,
+        bias_attr=None if has_bias else False,
+        backend="paddle",
     )
     layer_pd.weight.copy_(layer_te.weight, True)
     if has_bias:
@@ -553,7 +566,10 @@ class TestLayerNormLinear:
                 layer_cached.weight.grad, layer_normal.weight.grad, rtol=rtol, atol=atol
             )
             assert_allclose(
-                layer_cached.ln_weight.grad, layer_normal.ln_weight.grad, rtol=rtol, atol=atol
+                layer_cached.ln_weight.grad,
+                layer_normal.ln_weight.grad,
+                rtol=rtol,
+                atol=atol,
             )
 
 
@@ -657,10 +673,16 @@ class TestLayerNormMLP:
         if not no_wgrad:
             assert_allclose(layer_te.ln_weight.grad, layer_pd.ln_weight.grad, rtol=rtol, atol=atol)
             assert_allclose(
-                layer_te.fc1_weight.grad, layer_pd.fc1_weight.grad.T, rtol=rtol, atol=atol
+                layer_te.fc1_weight.grad,
+                layer_pd.fc1_weight.grad.T,
+                rtol=rtol,
+                atol=atol,
             )
             assert_allclose(
-                layer_te.fc2_weight.grad, layer_pd.fc2_weight.grad.T, rtol=rtol, atol=atol
+                layer_te.fc2_weight.grad,
+                layer_pd.fc2_weight.grad.T,
+                rtol=rtol,
+                atol=atol,
             )
         if not no_dbias:
             if has_ln_bias:
@@ -777,10 +799,16 @@ class TestLayerNormMLP:
         if not no_wgrad:
             assert_allclose(layer_te.ln_weight.grad, layer_pd.ln_weight.grad, rtol=rtol, atol=atol)
             assert_allclose(
-                layer_te.fc1_weight.grad, layer_pd.fc1_weight.grad.T, rtol=rtol, atol=atol
+                layer_te.fc1_weight.grad,
+                layer_pd.fc1_weight.grad.T,
+                rtol=rtol,
+                atol=atol,
             )
             assert_allclose(
-                layer_te.fc2_weight.grad, layer_pd.fc2_weight.grad.T, rtol=rtol, atol=atol
+                layer_te.fc2_weight.grad,
+                layer_pd.fc2_weight.grad.T,
+                rtol=rtol,
+                atol=atol,
             )
         if not no_dbias:
             if has_ln_bias:
@@ -856,13 +884,22 @@ class TestLayerNormMLP:
 
             assert_allclose(out, out_ref, rtol=rtol, atol=atol)
             assert_allclose(
-                layer_cached.ln_weight.grad, layer_normal.ln_weight.grad, rtol=rtol, atol=atol
+                layer_cached.ln_weight.grad,
+                layer_normal.ln_weight.grad,
+                rtol=rtol,
+                atol=atol,
             )
             assert_allclose(
-                layer_cached.fc1_weight.grad, layer_normal.fc1_weight.grad, rtol=rtol, atol=atol
+                layer_cached.fc1_weight.grad,
+                layer_normal.fc1_weight.grad,
+                rtol=rtol,
+                atol=atol,
             )
             assert_allclose(
-                layer_cached.fc2_weight.grad, layer_normal.fc2_weight.grad, rtol=rtol, atol=atol
+                layer_cached.fc2_weight.grad,
+                layer_normal.fc2_weight.grad,
+                rtol=rtol,
+                atol=atol,
             )
 
 
@@ -874,7 +911,15 @@ class TestLayerNormMLP:
 @pytest.mark.parametrize("math_dtype", ["bfloat16", "float16"])
 @pytest.mark.parametrize("deterministic", [True, False])
 def test_dot_product_attention(
-    bs, hidden_size, num_heads, q_seqlen, kv_seqlen, attn_type, mask_type, math_dtype, deterministic
+    bs,
+    hidden_size,
+    num_heads,
+    q_seqlen,
+    kv_seqlen,
+    attn_type,
+    mask_type,
+    math_dtype,
+    deterministic,
 ):
     """
     Test DotProductAttention Layer

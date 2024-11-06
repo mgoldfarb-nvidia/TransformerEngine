@@ -167,7 +167,10 @@ def run_dpa_with_cp(
             cu_seqlens_q = cu_seqlens_q_padded[:-1]
         else:
             cu_seqlens_q = torch.cat(
-                [torch.zeros([1], dtype=torch.int32), seqlens_q.cumsum(0, dtype=torch.int32)]
+                [
+                    torch.zeros([1], dtype=torch.int32),
+                    seqlens_q.cumsum(0, dtype=torch.int32),
+                ]
             ).cuda()
         cu_seqlens_kv = cu_seqlens_q
         cu_seqlens_kv_padded = cu_seqlens_q_padded
@@ -204,7 +207,7 @@ def run_dpa_with_cp(
             core_attention_bias=bias,
             cu_seqlens_q=cu_seqlens_q,
             cu_seqlens_kv=cu_seqlens_kv,
-            cu_seqlens_q_padded=None if cu_seqlens_q_padded is None else cu_seqlens_q_padded[:-1],
+            cu_seqlens_q_padded=(None if cu_seqlens_q_padded is None else cu_seqlens_q_padded[:-1]),
             cu_seqlens_kv_padded=(
                 None if cu_seqlens_kv_padded is None else cu_seqlens_kv_padded[:-1]
             ),
@@ -250,7 +253,10 @@ def run_dpa_with_cp(
     q_, k_, v_ = [x.requires_grad_() for x in [q_, k_, v_]]
     if bias_ is not None:
         bias_ = bias_.view(
-            *bias_.shape[:-2], 2 * world_size, bias_.shape[-2] // (2 * world_size), bias_.shape[-1]
+            *bias_.shape[:-2],
+            2 * world_size,
+            bias_.shape[-2] // (2 * world_size),
+            bias_.shape[-1],
         )
         bias_ = bias_.index_select(2, seq_idx)
         bias_ = bias_.view(*bias_.shape[:2], -1, bias_.shape[-1])
@@ -276,7 +282,7 @@ def run_dpa_with_cp(
             core_attention_bias=bias_,
             cu_seqlens_q=cu_seqlens_q,
             cu_seqlens_kv=cu_seqlens_kv,
-            cu_seqlens_q_padded=None if cu_seqlens_q_padded is None else cu_seqlens_q_padded[:-1],
+            cu_seqlens_q_padded=(None if cu_seqlens_q_padded is None else cu_seqlens_q_padded[:-1]),
             cu_seqlens_kv_padded=(
                 None if cu_seqlens_kv_padded is None else cu_seqlens_kv_padded[:-1]
             ),

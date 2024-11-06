@@ -135,7 +135,14 @@ class TestDistributedLayernorm:
     @pytest.mark.parametrize("dtype", DTYPES)
     @pytest.mark.parametrize("shard_weights", [False, True])
     def test_rmsnorm(
-        self, device_count, mesh_shape, mesh_axes, mesh_resource, data_shape, dtype, shard_weights
+        self,
+        device_count,
+        mesh_shape,
+        mesh_axes,
+        mesh_resource,
+        data_shape,
+        dtype,
+        shard_weights,
     ):
         epsilon = 1e-6
         ln_type = "rmsnorm"

@@ -21,7 +21,12 @@ except ImportError:
     from paddle.fluid.framework import _dygraph_tracer
 
 from ..constants import FP8FwdTensors, FP8BwdTensors, dist_group_type
-from ..cpp_extensions import cast_transpose, cast_transpose_bgrad, cast_to_fp8, transpose
+from ..cpp_extensions import (
+    cast_transpose,
+    cast_transpose_bgrad,
+    cast_to_fp8,
+    transpose,
+)
 from ..fp8 import (
     FP8State,
     FP8TensorMeta,

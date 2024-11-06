@@ -290,14 +290,18 @@ def train_and_evaluate(args):
         label_shape = [args.batch_size]
 
         with te.fp8_autocast(
-            args.use_fp8, mesh_resource=te.MeshResource(DEVICE_DP_AXIS, DEVICE_TP_AXIS, None, None)
+            args.use_fp8,
+            mesh_resource=te.MeshResource(DEVICE_DP_AXIS, DEVICE_TP_AXIS, None, None),
         ):
             encoder = Net(num_embed, args.enable_sp)
             inputs = jnp.zeros(input_shape, dtype=jnp.int32)
             masks = jnp.zeros(mask_shape, dtype=jnp.uint8)
             abs_var_collect = jax.eval_shape(encoder.init, init_rngs, inputs, masks)
 
-            customized_rules = ((NAMED_BROADCAST_AXIS, None), (NAMED_TP_AXIS, DEVICE_TP_AXIS))
+            customized_rules = (
+                (NAMED_BROADCAST_AXIS, None),
+                (NAMED_TP_AXIS, DEVICE_TP_AXIS),
+            )
             sharding_rules = te_flax.extend_logical_axis_rules(tuple()) + customized_rules
             params_sharding = get_params_sharding(sharding_rules, abs_var_collect, mesh)
             inputs_sharding = NamedSharding(mesh, PartitionSpec(DEVICE_DP_AXIS, None))
@@ -329,7 +333,13 @@ def train_and_evaluate(args):
             out_shardings = (state_sharding, None, None, None)
             jit_train_step = jax.jit(train_step, in_shardings, out_shardings)
 
-            in_shardings = (state_sharding, inputs_sharding, masks_sharding, labels_sharding, None)
+            in_shardings = (
+                state_sharding,
+                inputs_sharding,
+                masks_sharding,
+                labels_sharding,
+                None,
+            )
             out_shardings = (None, None)
             jit_eval_step = jax.jit(eval_step, in_shardings, out_shardings)
 
@@ -420,7 +430,10 @@ def encoder_parser(args):
         help="Use FP8 for inference and training without recalibration",
     )
     parser.add_argument(
-        "--enable-sp", action="store_true", default=False, help="Enable sequence parallelism."
+        "--enable-sp",
+        action="store_true",
+        default=False,
+        help="Enable sequence parallelism.",
     )
 
     return parser.parse_args(args)

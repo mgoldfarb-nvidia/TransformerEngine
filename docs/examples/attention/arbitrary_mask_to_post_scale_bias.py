@@ -39,7 +39,13 @@ def _run_dot_product_attention(
         [config.batch_size], config.max_seqlen_kv, dtype=torch.int32, device="cuda"
     )
     inp = torch.randn(
-        [config.batch_size, config.max_seqlen_q, 3, config.num_heads, config.head_dim_qk],
+        [
+            config.batch_size,
+            config.max_seqlen_q,
+            3,
+            config.num_heads,
+            config.head_dim_qk,
+        ],
         dtype=dtype,
         device="cuda",
     )
@@ -62,14 +68,24 @@ def _run_dot_product_attention(
         attention_mask = torch.randint(
             -10,
             10,
-            [config.batch_size, config.num_heads, config.max_seqlen_q, config.max_seqlen_kv],
+            [
+                config.batch_size,
+                config.num_heads,
+                config.max_seqlen_q,
+                config.max_seqlen_kv,
+            ],
         ).to(dtype=torch.bool, device="cuda")
     if config.attn_bias_type == "post_scale_bias":
         # convert mask to bias
         attention_mask = torch.randint(
             -10,
             10,
-            [config.batch_size, config.num_heads, config.max_seqlen_q, config.max_seqlen_kv],
+            [
+                config.batch_size,
+                config.num_heads,
+                config.max_seqlen_q,
+                config.max_seqlen_kv,
+            ],
         ).to(dtype=torch.bool, device="cuda")
         bias = attention_mask.clone()
         neginf = -(2**50) if dtype == torch.bfloat16 else -(2**15)

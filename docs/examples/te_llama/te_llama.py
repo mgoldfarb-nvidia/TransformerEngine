@@ -21,7 +21,11 @@ from transformers.models.llama.modeling_llama import (
     LlamaRMSNorm,
     LlamaConfig,
 )
-from transformers.modeling_utils import _add_variant, load_state_dict, _load_state_dict_into_model
+from transformers.modeling_utils import (
+    _add_variant,
+    load_state_dict,
+    _load_state_dict_into_model,
+)
 from transformers.utils import WEIGHTS_INDEX_NAME
 from transformers.utils.hub import get_checkpoint_shard_files
 
@@ -76,7 +80,9 @@ class TELlamaDecoderLayer(te.pytorch.TransformerLayer):
         """
         return (
             super().forward(
-                hidden_states, attention_mask=attention_mask, rotary_pos_emb=self.te_rope_emb
+                hidden_states,
+                attention_mask=attention_mask,
+                rotary_pos_emb=self.te_rope_emb,
             ),
         )
 
@@ -125,12 +131,16 @@ class TELlamaForCausalLM:
             is_sharded = True
         elif os.path.isfile(
             os.path.join(
-                pretrained_model_name_or_path, subfolder, _add_variant(WEIGHTS_INDEX_NAME, variant)
+                pretrained_model_name_or_path,
+                subfolder,
+                _add_variant(WEIGHTS_INDEX_NAME, variant),
             )
         ):
             # Load from a sharded PyTorch checkpoint
             archive_file = os.path.join(
-                pretrained_model_name_or_path, subfolder, _add_variant(WEIGHTS_INDEX_NAME, variant)
+                pretrained_model_name_or_path,
+                subfolder,
+                _add_variant(WEIGHTS_INDEX_NAME, variant),
             )
             is_sharded = True
         else:

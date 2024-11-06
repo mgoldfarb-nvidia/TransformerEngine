@@ -293,7 +293,7 @@ class _LayerNormLinear(torch.autograd.Function):
                 get_workspace(),
                 bias=bias,
                 use_bias=use_bias,
-                ub_algo=tex.CommOverlapAlgo.SPLIT_PIPELINED_AG_P2P if ub_overlap_ag else None,
+                ub_algo=(tex.CommOverlapAlgo.SPLIT_PIPELINED_AG_P2P if ub_overlap_ag else None),
                 ub=ub_obj_lnout if ub_overlap_ag else None,
                 extra_output_tensor=ln_out if ub_overlap_ag else None,
             )
@@ -330,7 +330,7 @@ class _LayerNormLinear(torch.autograd.Function):
                 rsigma,
                 weight,
                 weight_fp8,
-                weight.main_grad if cpu_offloading and fuse_wgrad_accumulation else None,
+                (weight.main_grad if cpu_offloading and fuse_wgrad_accumulation else None),
                 ln_out if weight.requires_grad else None,
                 ln_out_scale_inv,
             )
@@ -415,7 +415,7 @@ class _LayerNormLinear(torch.autograd.Function):
                 ctx.fsdp_shapes,
                 mu,
                 rsigma,
-                weight_fp8 if ctx.fp8 and not isinstance(weight, Float8Tensor) else None,
+                (weight_fp8 if ctx.fp8 and not isinstance(weight, Float8Tensor) else None),
                 ln_out,
             )
 
@@ -590,7 +590,9 @@ class _LayerNormLinear(torch.autograd.Function):
                         if ub_obj_dgrad.is_fp8_ubuf():
                             dim_size = list(ub_obj_dgrad.get_ubuf_output(0).size())  # RS output
                             extra_output_tensor = torch.empty(
-                                dim_size, dtype=ctx.activation_dtype, device=dgrad.device
+                                dim_size,
+                                dtype=ctx.activation_dtype,
+                                device=dgrad.device,
                             )
                             dgrad = extra_output_tensor
                         else:
@@ -613,7 +615,7 @@ class _LayerNormLinear(torch.autograd.Function):
                             ctx.activation_dtype,
                             get_workspace(),
                             accumulate=accumulate_wgrad_into_param_main_grad,
-                            out=weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                            out=(weight.main_grad if ctx.fuse_wgrad_accumulation else None),
                             use_split_accumulator=_2X_ACC_WGRAD,
                             ub_algo=(
                                 tex.CommOverlapAlgo.BULK_OVERLAP_RS if ctx.ub_bulk_wgrad else None
@@ -638,7 +640,7 @@ class _LayerNormLinear(torch.autograd.Function):
                             layout="NT",
                             grad=True,
                             accumulate=accumulate_wgrad_into_param_main_grad,
-                            out=weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                            out=(weight.main_grad if ctx.fuse_wgrad_accumulation else None),
                             ub_algo=(
                                 tex.CommOverlapAlgo.BULK_OVERLAP_RS if ctx.ub_bulk_wgrad else None
                             ),
@@ -658,7 +660,9 @@ class _LayerNormLinear(torch.autograd.Function):
                         use_bias=ctx.use_bias,
                         accumulate=accumulate_wgrad_into_param_main_grad,
                         out=weight.main_grad if ctx.fuse_wgrad_accumulation else None,
-                        ub_algo=tex.CommOverlapAlgo.BULK_OVERLAP_RS if ctx.ub_bulk_wgrad else None,
+                        ub_algo=(
+                            tex.CommOverlapAlgo.BULK_OVERLAP_RS if ctx.ub_bulk_wgrad else None
+                        ),
                         ub=ub_obj_dgrad if ctx.ub_bulk_wgrad else None,
                     )
                     clear_tensor_data(ln_out_total)
@@ -900,7 +904,10 @@ class LayerNormLinear(TransformerEngineBaseModule):
         self.out_features = out_features
         self.fuse_wgrad_accumulation = fuse_wgrad_accumulation
         self.normalization = normalization
-        assert normalization in ["LayerNorm", "RMSNorm"], "Unsupported normalization type!"
+        assert normalization in [
+            "LayerNorm",
+            "RMSNorm",
+        ], "Unsupported normalization type!"
         self.use_bias = bias
         self.return_bias = return_bias
         self.apply_bias = self.use_bias and not return_bias
@@ -1119,7 +1126,11 @@ class LayerNormLinear(TransformerEngineBaseModule):
             if self.use_bias:
                 for bias in self.bias_names:
                     if self.parallel_mode == "row":
-                        setattr(getattr(self, bias), "sequence_parallel", self.sequence_parallel)
+                        setattr(
+                            getattr(self, bias),
+                            "sequence_parallel",
+                            self.sequence_parallel,
+                        )
                     elif self.parallel_mode == "column":
                         set_tensor_model_parallel_attributes(getattr(self, bias), True, 0, 1)
 
@@ -1228,7 +1239,7 @@ class LayerNormLinear(TransformerEngineBaseModule):
                 self.return_layernorm_output,
                 self.return_layernorm_output_gathered,
                 torch.is_grad_enabled(),
-                self.fwd_ln_sm_margin if torch.is_grad_enabled() else self.inf_ln_sm_margin,
+                (self.fwd_ln_sm_margin if torch.is_grad_enabled() else self.inf_ln_sm_margin),
                 self.bwd_ln_sm_margin,
                 self.zero_centered_gamma,
                 self.normalization,

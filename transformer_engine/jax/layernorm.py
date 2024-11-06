@@ -49,14 +49,24 @@ def layernorm(
 
 @partial(jax.custom_vjp, nondiff_argnums=(3, 4, 5))
 def _layernorm(
-    x, gamma, beta, layernorm_type: str, zero_centered_gamma: bool = False, epsilon: float = 1e-6
+    x,
+    gamma,
+    beta,
+    layernorm_type: str,
+    zero_centered_gamma: bool = False,
+    epsilon: float = 1e-6,
 ):
     output, _ = _layernorm_fwd_rule(x, gamma, beta, layernorm_type, zero_centered_gamma, epsilon)
     return output
 
 
 def _layernorm_fwd_rule(
-    x, gamma, beta, layernorm_type: str, zero_centered_gamma: bool = False, epsilon: float = 1e-6
+    x,
+    gamma,
+    beta,
+    layernorm_type: str,
+    zero_centered_gamma: bool = False,
+    epsilon: float = 1e-6,
 ):
     layernorm_type = canonicalize_layernorm_type(layernorm_type)
     if layernorm_type == "layernorm":
@@ -76,7 +86,14 @@ def _layernorm_bwd_rule(layernorm_type, zero_centered_gamma, epsilon, ctx, dz):
     x, mu, rsigma, gamma, beta = ctx
     if layernorm_type == "layernorm":
         dx, dgamma, dbeta = tex.layernorm_bwd(
-            dz, x, mu, rsigma, gamma, beta, zero_centered_gamma=zero_centered_gamma, epsilon=epsilon
+            dz,
+            x,
+            mu,
+            rsigma,
+            gamma,
+            beta,
+            zero_centered_gamma=zero_centered_gamma,
+            epsilon=epsilon,
         )
     elif layernorm_type == "rmsnorm":
         assert (

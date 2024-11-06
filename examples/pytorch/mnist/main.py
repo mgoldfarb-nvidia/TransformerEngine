@@ -168,7 +168,10 @@ def main():
         help="Use FP8 for inference and training without recalibration",
     )
     parser.add_argument(
-        "--use-fp8-infer", action="store_true", default=False, help="Use FP8 inference only"
+        "--use-fp8-infer",
+        action="store_true",
+        default=False,
+        help="Use FP8 inference only",
     )
     parser.add_argument(
         "--use-te", action="store_true", default=False, help="Use Transformer Engine"

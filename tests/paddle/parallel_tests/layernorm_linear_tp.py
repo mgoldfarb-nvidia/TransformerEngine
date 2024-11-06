@@ -105,7 +105,8 @@ class TestLayerNormLinearTp(unittest.TestCase):
         layer_pd.weight.copy_(total_weight.T, True)
 
         assert_shape(
-            layer_te.weight, [self.out_features // self.model_parallel_size, self.in_features]
+            layer_te.weight,
+            [self.out_features // self.model_parallel_size, self.in_features],
         )
         assert_shape(layer_te.bias, [self.out_features // self.model_parallel_size])
 

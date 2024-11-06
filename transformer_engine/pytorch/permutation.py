@@ -112,11 +112,18 @@ class _moe_permute(torch.autograd.Function):
         act_grad = None
         if ctx.needs_input_grad[0]:
             act_grad = tex.moe_permute_bwd(
-                permuted_act_grad, dtype, ctx.row_id_map, torch.empty(0), ctx.num_tokens, ctx.topK
+                permuted_act_grad,
+                dtype,
+                ctx.row_id_map,
+                torch.empty(0),
+                ctx.num_tokens,
+                ctx.topK,
             )
             if ctx.fp8:
                 act_grad = Float8Tensor(
-                    data=act_grad, fp8_dtype=dtype, fp8_scale_inv=fp8_scale_inv * ctx.topK
+                    data=act_grad,
+                    fp8_dtype=dtype,
+                    fp8_scale_inv=fp8_scale_inv * ctx.topK,
                 )
 
         return act_grad, None, None, None

@@ -94,14 +94,24 @@ def _parse_args(argv=None, namespace=None):
         "-n", "--num-heads", type=int, default=12, help="Number of attention heads."
     )
     parser.add_argument(
-        "-d", "--head-dim", type=int, default=64, help="Dimension of each attention head."
+        "-d",
+        "--head-dim",
+        type=int,
+        default=64,
+        help="Dimension of each attention head.",
     )
     parser.add_argument("--seed", type=int, default=42, help="RNG seed.")
     parser.add_argument(
-        "--fp8", action="store_true", default=False, help="Enables the te.fp8_autocast() context."
+        "--fp8",
+        action="store_true",
+        default=False,
+        help="Enables the te.fp8_autocast() context.",
     )
     parser.add_argument(
-        "--fp8-init", action="store_true", default=False, help="Initialize primary weights in FP8."
+        "--fp8-init",
+        action="store_true",
+        default=False,
+        help="Initialize primary weights in FP8.",
     )
     parser.add_argument(
         "--tcp-init",
@@ -133,7 +143,10 @@ def _parse_args(argv=None, namespace=None):
     )
     args = parser.parse_args(argv, namespace)
 
-    if args.use_cuda_graphs and args.layer_type in [te.MultiheadAttention, te.TransformerLayer]:
+    if args.use_cuda_graphs and args.layer_type in [
+        te.MultiheadAttention,
+        te.TransformerLayer,
+    ]:
         warnings.warn(f"{args.layer_type.__name__} does not support CUDA Graphs!")
         args.use_cuda_graphs = False
 

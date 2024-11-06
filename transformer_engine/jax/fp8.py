@@ -35,9 +35,15 @@ def _check_fp8_support(gpu_id) -> Tuple[bool, str]:
     if gpu_arch >= 90:  # hopper and above
         return True, ""
     if gpu_arch < 89:  # pre-ada
-        return False, "Device compute capability 8.9 or higher required for FP8 execution."
+        return (
+            False,
+            "Device compute capability 8.9 or higher required for FP8 execution.",
+        )
     if get_cublasLt_version() < 120103:
-        return False, "CublasLt version 12.1.3.x or higher required for FP8 execution on Ada."
+        return (
+            False,
+            "CublasLt version 12.1.3.x or higher required for FP8 execution on Ada.",
+        )
     if get_cuda_version() < 12010:
         return False, "Cuda version 12.1 or higher required for FP8 execution on Ada."
     return True, ""
@@ -135,7 +141,9 @@ class FP8MetaPackage:
 
     @staticmethod
     def update_fp8_scale(
-        amax_list: List[jnp.ndarray], scale_list: List[jnp.ndarray], fp8_dtype_list: List[DType]
+        amax_list: List[jnp.ndarray],
+        scale_list: List[jnp.ndarray],
+        fp8_dtype_list: List[DType],
     ) -> Tuple[List[jnp.ndarray], List[jnp.ndarray]]:
         """
         Get update scale and scale_inv list

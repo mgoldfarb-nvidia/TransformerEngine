@@ -50,7 +50,11 @@ def _parse_args(argv=None, namespace=None):
         description="Train a Transformer Engine module with GEMM+comm overlap via Userbuffers."
     )
     parser.add_argument(
-        "-i", "--num-iters", type=int, default=5, help="Number of dummy 'training' iterations."
+        "-i",
+        "--num-iters",
+        type=int,
+        default=5,
+        help="Number of dummy 'training' iterations.",
     )
     parser.add_argument("-b", "--batch-size", type=int, default=2, help="Input batch size.")
     parser.add_argument("-s", "--seq-length", type=int, default=2048, help="Input sequence length.")
@@ -58,7 +62,11 @@ def _parse_args(argv=None, namespace=None):
         "-n", "--num-heads", type=int, default=64, help="Number of attention heads."
     )
     parser.add_argument(
-        "-d", "--head-dim", type=int, default=128, help="Dimension of each attention head."
+        "-d",
+        "--head-dim",
+        type=int,
+        default=128,
+        help="Dimension of each attention head.",
     )
     parser.add_argument(
         "--layer-type",
@@ -68,7 +76,10 @@ def _parse_args(argv=None, namespace=None):
     )
     parser.add_argument("--seed", type=int, default=1234, help="RNG seed.")
     parser.add_argument(
-        "--fp8", action="store_true", default=False, help="Enables the te.fp8_autocast() context."
+        "--fp8",
+        action="store_true",
+        default=False,
+        help="Enables the te.fp8_autocast() context.",
     )
     parser.add_argument(
         "--no-comm-overlap",
@@ -77,7 +88,10 @@ def _parse_args(argv=None, namespace=None):
         help="Disable the comm+GEMM overlap.",
     )
     parser.add_argument(
-        "--num-replicas", type=int, default=1, help="Number of data-parallel model replicas."
+        "--num-replicas",
+        type=int,
+        default=1,
+        help="Number of data-parallel model replicas.",
     )
     parser.add_argument(
         "--tcp-init",
@@ -228,7 +242,9 @@ def _train(opts):
             try:
                 hostname = socket.inet_ntoa(
                     fcntl.ioctl(
-                        s.fileno(), 0x8915, struct.pack("256s", ifname[:15].encode("UTF-8"))
+                        s.fileno(),
+                        0x8915,
+                        struct.pack("256s", ifname[:15].encode("UTF-8")),
                     )[20:24]
                 )
             except OSError as err:

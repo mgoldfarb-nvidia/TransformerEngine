@@ -96,7 +96,10 @@ def check_valid_batch_dims(bdims):
     Assert out non-supported bath dims
     """
     for dim in bdims:
-        assert dim in [0, None], f"Currently only support batch_dim in [0, None], but got {dim=}"
+        assert dim in [
+            0,
+            None,
+        ], f"Currently only support batch_dim in [0, None], but got {dim=}"
 
 
 def normalize_axis_boundary(axis, ndim):

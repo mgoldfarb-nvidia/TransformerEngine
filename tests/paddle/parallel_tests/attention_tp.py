@@ -9,7 +9,11 @@ import paddle
 from paddle.distributed import fleet
 from paddle.distributed.fleet.layers.mpu import mp_ops
 
-from utils import assert_allclose, set_random_seed, register_sequence_parallel_allreduce_hooks
+from utils import (
+    assert_allclose,
+    set_random_seed,
+    register_sequence_parallel_allreduce_hooks,
+)
 import transformer_engine.paddle as te
 
 
@@ -142,7 +146,13 @@ class TestAttentionTp(unittest.TestCase):
             weight_dst.copy_(total_weight, True)
 
         copy_weight(layer_tp, layer_single, None, ["layernorm_qkv", "ln_weight"])
-        copy_weight(layer_tp, layer_single, "column", ["layernorm_qkv", "weight"], interleave=True)
+        copy_weight(
+            layer_tp,
+            layer_single,
+            "column",
+            ["layernorm_qkv", "weight"],
+            interleave=True,
+        )
         copy_weight(layer_tp, layer_single, "row", ["proj", "weight"])
 
         if self.sequence_parallel:

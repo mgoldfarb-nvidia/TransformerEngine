@@ -97,7 +97,11 @@ class TestDistributedSelfAttn:
     @pytest.mark.parametrize("data_shape", [[32, 512, 3, 12, 64], [32, 1024, 3, 16, 128]])
     @pytest.mark.parametrize(
         "attn_bias_type",
-        [AttnBiasType.NO_BIAS, AttnBiasType.PRE_SCALE_BIAS, AttnBiasType.POST_SCALE_BIAS],
+        [
+            AttnBiasType.NO_BIAS,
+            AttnBiasType.PRE_SCALE_BIAS,
+            AttnBiasType.POST_SCALE_BIAS,
+        ],
     )
     @pytest.mark.parametrize(
         "attn_mask_type", [AttnMaskType.PADDING_MASK, AttnMaskType.CAUSAL_MASK]
@@ -245,7 +249,14 @@ class TestDistributedCrossAttn:
     )
     @pytest.mark.parametrize("dtype", DTYPES)
     def test_cross_attn(
-        self, device_count, mesh_shape, mesh_axes, mesh_resource, data_shape, attn_mask_type, dtype
+        self,
+        device_count,
+        mesh_shape,
+        mesh_axes,
+        mesh_resource,
+        data_shape,
+        attn_mask_type,
+        dtype,
     ):
         attn_bias_type = AttnBiasType.NO_BIAS
         dropout_prob = 0.0
@@ -371,7 +382,8 @@ class TestDistributedContextParallelSelfAttn:
         return qkv_args
 
     @pytest.mark.parametrize(
-        "device_count,mesh_shape,mesh_axes,mesh_resource", generate_context_parallel_configs()
+        "device_count,mesh_shape,mesh_axes,mesh_resource",
+        generate_context_parallel_configs(),
     )
     @pytest.mark.parametrize(
         "data_shape",
@@ -492,7 +504,10 @@ class TestDistributedContextParallelSelfAttn:
             # Gradient is small, use a gradient multiplier to amplify the gradient
             _, max_seq_len, num_heads, _ = data_shape
             gradient_multiplier = max_seq_len * num_heads
-            if attn_mask_type in [AttnMaskType.CAUSAL_MASK, AttnMaskType.CAUSAL_BOTTOM_RIGHT_MASK]:
+            if attn_mask_type in [
+                AttnMaskType.CAUSAL_MASK,
+                AttnMaskType.CAUSAL_BOTTOM_RIGHT_MASK,
+            ]:
                 gradient_multiplier /= 10
             ret_valid = func(*args, **kwargs)
             return (jnp.mean(ret_valid, dtype=jnp.float32) * gradient_multiplier).astype(dtype)
@@ -504,7 +519,8 @@ class TestDistributedContextParallelSelfAttn:
         # Single GPU (reference)
         ref_func_jit = jax.jit(
             jax.value_and_grad(
-                lambda q, k, v, mask: grad_func(ref_func, q, k, v, mask), argnums=diff_argnums
+                lambda q, k, v, mask: grad_func(ref_func, q, k, v, mask),
+                argnums=diff_argnums,
             )
         )
         ref_fwd, ref_grads = ref_func_jit(q, k, v, mask)
@@ -530,7 +546,9 @@ class TestDistributedContextParallelSelfAttn:
                 reorder_causal_load_balancing, cp_size=cp_size, tensor_format=qkv_format
             )
             inverse_reorder = partial(
-                inverse_reorder_causal_load_balancing, cp_size=cp_size, tensor_format=qkv_format
+                inverse_reorder_causal_load_balancing,
+                cp_size=cp_size,
+                tensor_format=qkv_format,
             )
 
             if load_balanced:

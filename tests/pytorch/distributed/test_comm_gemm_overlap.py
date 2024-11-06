@@ -33,7 +33,14 @@ TEST_ROOT = Path(__file__).parent.resolve()
 NUM_PROCS: int = min(torch.cuda.device_count(), 4)
 LAUNCH_CMD = ["torchrun", f"--nproc_per_node={NUM_PROCS}"]
 if tex.ubuf_built_with_mpi():
-    LAUNCH_CMD = ["mpirun", "-np", str(NUM_PROCS), "--oversubscribe", "--quiet", "python"]
+    LAUNCH_CMD = [
+        "mpirun",
+        "-np",
+        str(NUM_PROCS),
+        "--oversubscribe",
+        "--quiet",
+        "python",
+    ]
 
 # Fall back on CUDA IPC if the platform does not support CUDA multicast
 if not tex.device_supports_multicast():
@@ -215,7 +222,11 @@ def test_atomic_gemm_overlaps(ag_type, rs_type, p2p, fp8_out):
         ("RS", False),
         ("RS", True),
     ],
-    ids=[" ALL-GATHER     - BF16 ", " REDUCE-SCATTER - BF16 ", " REDUCE-SCATTER - FP8 "],
+    ids=[
+        " ALL-GATHER     - BF16 ",
+        " REDUCE-SCATTER - BF16 ",
+        " REDUCE-SCATTER - FP8 ",
+    ],
 )
 def test_bulk_overlaps(comm_type, fp8):
     """

@@ -169,9 +169,12 @@ class TestFP8Dot:
         ref_out, (ref_a_grad, ref_b_grad) = value_n_grad_ref_func(a, b)
 
         for _ in range(3):
-            primitive_out, (primitive_a_grad, primitive_b_grad, amax_list, scale_list) = (
-                value_n_grad_primitive_func(a, b, amax_list, scale_list)
-            )
+            primitive_out, (
+                primitive_a_grad,
+                primitive_b_grad,
+                amax_list,
+                scale_list,
+            ) = value_n_grad_primitive_func(a, b, amax_list, scale_list)
 
         assert_allclose(primitive_out, ref_out, dtype=FP8Helper.FWD_DTYPE)
         assert_allclose(primitive_a_grad, ref_a_grad, dtype=FP8Helper.BWD_DTYPE)
@@ -179,7 +182,13 @@ class TestFP8Dot:
 
     @pytest.mark.skipif(not is_fp8_supported, reason=reason)
     @pytest.mark.parametrize(
-        "m,n,k", [(256, 128, 512), (16384, 1024, 2816), (16384, 2816, 1024), (16384, 1024, 1024)]
+        "m,n,k",
+        [
+            (256, 128, 512),
+            (16384, 1024, 2816),
+            (16384, 2816, 1024),
+            (16384, 1024, 1024),
+        ],
     )
     @pytest.mark.parametrize(
         "activation_type",
@@ -305,7 +314,16 @@ class TestFP8Dot:
         def ref_func(x, ln_s, y, z, w, v, amax_list_1, amax_list_2, scale_list_1, scale_list_2):
             return jnp.mean(
                 layernorm_fp8_mlp_ref(
-                    x, ln_s, y, z, w, v, amax_list_1, amax_list_2, scale_list_1, scale_list_2
+                    x,
+                    ln_s,
+                    y,
+                    z,
+                    w,
+                    v,
+                    amax_list_1,
+                    amax_list_2,
+                    scale_list_1,
+                    scale_list_2,
                 )
             )
 
@@ -491,7 +509,14 @@ class TestActivationLuFP8(TestActivationLu):
             x = ctx
             if len(self.activation_type) > 1:  # gated, no bias
                 dactivation_lu, dactivation_lu_trans, amax_out = tex.dgated_act_lu_cast_transpose(
-                    g, x, amax, scale, scale_inv, FP8Helper.BWD_DTYPE, -1, activation_type
+                    g,
+                    x,
+                    amax,
+                    scale,
+                    scale_inv,
+                    FP8Helper.BWD_DTYPE,
+                    -1,
+                    activation_type,
                 )
                 dbias = jnp.empty(x.shape[-1], x.dtype)
             else:  # not gated, with bias
@@ -803,11 +828,23 @@ class TestTranspose:
         )
         os.environ["NVTE_JAX_WITH_FFI"] = "0"
         noffi_output = tex.cast_transpose(
-            input, amax, scale, scale_inv, out_dtype, static_axis_boundary, transpose_axis
+            input,
+            amax,
+            scale,
+            scale_inv,
+            out_dtype,
+            static_axis_boundary,
+            transpose_axis,
         )
         os.environ["NVTE_JAX_WITH_FFI"] = "1"
         ffi_output = tex.cast_transpose(
-            input, amax, scale, scale_inv, out_dtype, static_axis_boundary, transpose_axis
+            input,
+            amax,
+            scale,
+            scale_inv,
+            out_dtype,
+            static_axis_boundary,
+            transpose_axis,
         )
         assert_tree_like_allclose(jax_output, ffi_output)
         assert_tree_like_allclose(noffi_output, ffi_output)

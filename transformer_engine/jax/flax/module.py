@@ -452,7 +452,11 @@ class DenseGeneral(TransformerEngineBase):
         kernel_shape = tuple(inputs.shape[ax] for ax in axis) + features
         kernel_param_shape = (np.prod([inputs.shape[ax] for ax in axis]),) + features
         kernel = nn_partitioning.param_with_axes(
-            "kernel", self.kernel_init, kernel_param_shape, jnp.float32, axes=self.kernel_axes
+            "kernel",
+            self.kernel_init,
+            kernel_param_shape,
+            jnp.float32,
+            axes=self.kernel_axes,
         )
 
         kernel = jnp.reshape(kernel, kernel_shape)
@@ -471,7 +475,10 @@ class DenseGeneral(TransformerEngineBase):
             fp8_meta_pkg = TransformerEngineBase.generate_fp8_meta_set("0")
 
         y = type_safe_dot_general(
-            inputs, kernel, fp8_meta_pkg=fp8_meta_pkg, contracting_dims=(axis, contract_ind)
+            inputs,
+            kernel,
+            fp8_meta_pkg=fp8_meta_pkg,
+            contracting_dims=(axis, contract_ind),
         )
 
         if self.enable_low_rank_adaptation:
@@ -496,7 +503,11 @@ class DenseGeneral(TransformerEngineBase):
             lora_a_kernel = jnp.reshape(lora_a_kernel, lora_a_kernel_shape)
             lora_a_kernel = lora_a_kernel.astype(self.dtype)
 
-            lora_b_kernel_shape = (*features[:-1], self.low_rank_adaptation_dim, features[-1])
+            lora_b_kernel_shape = (
+                *features[:-1],
+                self.low_rank_adaptation_dim,
+                features[-1],
+            )
             lora_b_kernel_axes = (None,) * len(lora_b_kernel_shape)
             lora_b_kernel = nn_partitioning.param_with_axes(
                 "lora_b_kernel",
@@ -508,7 +519,12 @@ class DenseGeneral(TransformerEngineBase):
             lora_b_kernel = lora_b_kernel.astype(self.dtype)
 
             y += _apply_low_rank_adaptation(
-                inputs, axis, features, lora_a_kernel, lora_b_kernel, self.low_rank_adaptation_alpha
+                inputs,
+                axis,
+                features,
+                lora_a_kernel,
+                lora_b_kernel,
+                self.low_rank_adaptation_alpha,
             )
 
         if bias is not None:
@@ -709,7 +725,11 @@ class LayerNormDenseGeneral(TransformerEngineBase):
         kernel_shape = tuple(y.shape[ax] for ax in axis) + features
         kernel_param_shape = (np.prod([inputs.shape[ax] for ax in axis]),) + features
         kernel = nn_partitioning.param_with_axes(
-            "kernel", self.kernel_init, kernel_param_shape, jnp.float32, axes=self.kernel_axes
+            "kernel",
+            self.kernel_init,
+            kernel_param_shape,
+            jnp.float32,
+            axes=self.kernel_axes,
         )
 
         kernel = jnp.reshape(kernel, kernel_shape)
@@ -736,7 +756,10 @@ class LayerNormDenseGeneral(TransformerEngineBase):
         else:
             y = with_sharding_constraint_by_logical_axes(y, self.dot_input_axes)
             z = type_safe_dot_general(
-                y, kernel, fp8_meta_pkg=fp8_meta_pkg, contracting_dims=(axis, contract_ind)
+                y,
+                kernel,
+                fp8_meta_pkg=fp8_meta_pkg,
+                contracting_dims=(axis, contract_ind),
             )
 
         if self.enable_low_rank_adaptation:
@@ -761,7 +784,11 @@ class LayerNormDenseGeneral(TransformerEngineBase):
             lora_a_kernel = jnp.reshape(lora_a_kernel, lora_a_kernel_shape)
             lora_a_kernel = lora_a_kernel.astype(self.dtype)
 
-            lora_b_kernel_shape = (*features[:-1], self.low_rank_adaptation_dim, features[-1])
+            lora_b_kernel_shape = (
+                *features[:-1],
+                self.low_rank_adaptation_dim,
+                features[-1],
+            )
             lora_b_kernel_axes = (None,) * len(lora_b_kernel_shape)
             lora_b_kernel = nn_partitioning.param_with_axes(
                 "lora_b_kernel",
@@ -773,7 +800,12 @@ class LayerNormDenseGeneral(TransformerEngineBase):
             lora_b_kernel = lora_b_kernel.astype(self.dtype)
 
             z += _apply_low_rank_adaptation(
-                y, axis, features, lora_a_kernel, lora_b_kernel, self.low_rank_adaptation_alpha
+                y,
+                axis,
+                features,
+                lora_a_kernel,
+                lora_b_kernel,
+                self.low_rank_adaptation_alpha,
             )
 
         bias = None
@@ -1047,7 +1079,10 @@ class LayerNormMLP(TransformerEngineBase):
 
         intermediate_dim = _canonicalize_tuple((num_activations, self.intermediate_dim))
         kernel_1_shape = tuple(y.shape[ax] for ax in axis) + intermediate_dim
-        kernel_1_each_shape = (np.prod([y.shape[ax] for ax in axis]), self.intermediate_dim)
+        kernel_1_each_shape = (
+            np.prod([y.shape[ax] for ax in axis]),
+            self.intermediate_dim,
+        )
         kernel_1 = nn_partitioning.param_with_axes(
             "wi_kernel",
             kernel_1_init,
@@ -1081,13 +1116,21 @@ class LayerNormMLP(TransformerEngineBase):
             if self.use_bias:
                 bias_1_shape = intermediate_dim
                 bias_1 = nn_partitioning.param_with_axes(
-                    "wi_bias", self.bias_init, bias_1_shape, jnp.float32, axes=self.bias_axes_1
+                    "wi_bias",
+                    self.bias_init,
+                    bias_1_shape,
+                    jnp.float32,
+                    axes=self.bias_axes_1,
                 )
                 bias_1 = bias_1.astype(self.dtype)
 
                 bias_2_shape = (hidden_size,)
                 bias_2 = nn_partitioning.param_with_axes(
-                    "wo_bias", self.bias_init, bias_2_shape, jnp.float32, axes=self.bias_axes_2
+                    "wo_bias",
+                    self.bias_init,
+                    bias_2_shape,
+                    jnp.float32,
+                    axes=self.bias_axes_2,
                 )
                 bias_2 = bias_2.astype(self.dtype)
             else:
@@ -1131,7 +1174,10 @@ class LayerNormMLP(TransformerEngineBase):
             else:
                 y = with_sharding_constraint_by_logical_axes(y, self.dot_1_input_axes)
                 x = type_safe_dot_general(
-                    y, kernel_1, fp8_meta_pkg=wi_fp8_meta_pkg, contracting_dims=(axis, contract_ind)
+                    y,
+                    kernel_1,
+                    fp8_meta_pkg=wi_fp8_meta_pkg,
+                    contracting_dims=(axis, contract_ind),
                 )
 
             if self.enable_low_rank_adaptation:
@@ -1189,7 +1235,11 @@ class LayerNormMLP(TransformerEngineBase):
             bias_1 = None
             if self.use_bias:
                 bias_1 = nn_partitioning.param_with_axes(
-                    "wi_bias", self.bias_init, intermediate_dim, jnp.float32, axes=self.bias_axes_1
+                    "wi_bias",
+                    self.bias_init,
+                    intermediate_dim,
+                    jnp.float32,
+                    axes=self.bias_axes_1,
                 )
                 bias_1 = bias_1.astype(self.dtype)
                 bias_1_shape = (1,) * (x.ndim - bias_1.ndim) + bias_1.shape
@@ -1218,11 +1268,17 @@ class LayerNormMLP(TransformerEngineBase):
 
             # DenseGeneral 2
             out = type_safe_dot_general(
-                z, kernel_2, fp8_meta_pkg=wo_fp8_meta_pkg, contracting_dims=(axis, contract_ind)
+                z,
+                kernel_2,
+                fp8_meta_pkg=wo_fp8_meta_pkg,
+                contracting_dims=(axis, contract_ind),
             )
 
             if self.enable_low_rank_adaptation:
-                wo_lora_a_kernel_shape = (self.intermediate_dim, self.low_rank_adaptation_dim)
+                wo_lora_a_kernel_shape = (
+                    self.intermediate_dim,
+                    self.low_rank_adaptation_dim,
+                )
                 wo_lora_a_kernel_axes = (None,) * len(wo_lora_a_kernel_shape)
                 wo_lora_a_kernel = nn_partitioning.param_with_axes(
                     "wo_lora_a_kernel",
@@ -1256,7 +1312,11 @@ class LayerNormMLP(TransformerEngineBase):
             bias_2 = None
             if self.use_bias:
                 bias_2 = nn_partitioning.param_with_axes(
-                    "wo_bias", self.bias_init, (hidden_size,), jnp.float32, axes=self.bias_axes_2
+                    "wo_bias",
+                    self.bias_init,
+                    (hidden_size,),
+                    jnp.float32,
+                    axes=self.bias_axes_2,
                 )
                 bias_2 = bias_2.astype(self.dtype)
                 out += jnp.reshape(bias_2, (1,) * (out.ndim - 1) + (-1,))

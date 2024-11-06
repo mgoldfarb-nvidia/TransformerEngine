@@ -30,11 +30,17 @@ def _check_fp8_support() -> Tuple[bool, str]:
     if arch >= (9, 0):  # hopper and above
         return True, ""
     if arch < (8, 9):  # pre-ada
-        return False, "Device compute capability 8.9 or higher required for FP8 execution."
+        return (
+            False,
+            "Device compute capability 8.9 or higher required for FP8 execution.",
+        )
 
     # Special handling for Ada
     if tex.get_cublasLt_version() < 120103:
-        return False, "CublasLt version 12.1.3.x or higher required for FP8 execution on Ada."
+        return (
+            False,
+            "CublasLt version 12.1.3.x or higher required for FP8 execution on Ada.",
+        )
     if not paddle.version.cuda():
         return False, "Cuda version 12.1 or higher required for FP8 execution on Ada."
     if tuple(int(v) for v in paddle.version.cuda().split(".")) < (12, 1):

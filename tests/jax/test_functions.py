@@ -24,7 +24,10 @@ class TestLoRA:
     @pytest.mark.parametrize("dtype", [jnp.float32, jnp.bfloat16])
     @pytest.mark.parametrize(
         "axis_features_pattern",
-        [((-1,), (1024,), "...h,hr,rk->...k"), ((-1,), (3, 1024), "...h,hkr,krz->...kz")],
+        [
+            ((-1,), (1024,), "...h,hr,rk->...k"),
+            ((-1,), (3, 1024), "...h,hkr,krz->...kz"),
+        ],
     )
     @pytest.mark.parametrize("rank", [32, 16])
     @pytest.mark.parametrize("alpha", [None, 4, 8])

@@ -22,7 +22,8 @@ def is_in_recompute_phase():
     """Inspect call stack to determine if this is called from
     backward phase. Paddle has two recompute methods:
     (1) Use RecomputeFunction. The recomputed function is called from `RecomputeFunction.backward`;
-    (2) Use paddle.autograd.saved_tensors_hooks. The recompute function is called from `unpack`."""
+    (2) Use paddle.autograd.saved_tensors_hooks. The recompute function is called from `unpack`.
+    """
     if _DISABLE_RECOMPUTE:
         return False
     frame = inspect.currentframe().f_back

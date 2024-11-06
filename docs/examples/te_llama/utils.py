@@ -61,7 +61,10 @@ def get_dataloaders(accelerator: Accelerator, hyperparams):
             return_overflowing_tokens=False,
             return_length=False,
         )
-        return {"input_ids": outputs["input_ids"], "attention_mask": outputs["attention_mask"]}
+        return {
+            "input_ids": outputs["input_ids"],
+            "attention_mask": outputs["attention_mask"],
+        }
 
     with accelerator.main_process_first():
         dataset = dataset.map(tokenize, batched=True, remove_columns=dataset.column_names)

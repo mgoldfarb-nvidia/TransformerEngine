@@ -585,7 +585,12 @@ class GroupedLinear(TransformerEngineBaseModule):
         self.get_rng_state_tracker = get_rng_state_tracker
         self.rng_tracker_name = rng_tracker_name
 
-        self._offsets = {"input": 0, "weight": num_gemms, "output": 2 * num_gemms, "grad_output": 0}
+        self._offsets = {
+            "input": 0,
+            "weight": num_gemms,
+            "output": 2 * num_gemms,
+            "grad_output": 0,
+        }
 
         if tp_group is None:
             self.tp_size = tp_size
@@ -783,7 +788,8 @@ class GroupedLinear(TransformerEngineBaseModule):
                 [
                     o + cast_if_needed(b, self.activation_dtype)
                     for o, b in zip(
-                        torch.split(out.view(-1, self.out_features), m_splits), bias_tensors
+                        torch.split(out.view(-1, self.out_features), m_splits),
+                        bias_tensors,
                     )
                 ]
             ).view(out_shape)

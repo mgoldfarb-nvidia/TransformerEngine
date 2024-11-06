@@ -213,7 +213,15 @@ def eval_step(state, inputs, masks, labels, var_collect):
 
 
 def eval_model(
-    state, test_ds, batch_size, var_collect, eval_fn, mesh, inputs_pspec, masks_pspec, labels_pspec
+    state,
+    test_ds,
+    batch_size,
+    var_collect,
+    eval_fn,
+    mesh,
+    inputs_pspec,
+    masks_pspec,
+    labels_pspec,
 ):
     """Evaluation loop."""
     global_input_shape, input_named_sharding, sentence = shard_array_wrapper(
@@ -380,14 +388,18 @@ def train_and_evaluate(args):
         label_shape = [args.batch_size]
 
         with te.fp8_autocast(
-            args.use_fp8, mesh_resource=te.MeshResource(DEVICE_DP_AXIS, DEVICE_TP_AXIS, None, None)
+            args.use_fp8,
+            mesh_resource=te.MeshResource(DEVICE_DP_AXIS, DEVICE_TP_AXIS, None, None),
         ):
             encoder = Net(num_embed)
             inputs = jnp.zeros(input_shape, dtype=jnp.int32)
             masks = jnp.zeros(mask_shape, dtype=jnp.uint8)
             abs_var_collect = jax.eval_shape(encoder.init, init_rngs, inputs, masks)
 
-            customized_rules = ((NAMED_BROADCAST_AXIS, None), (NAMED_TP_AXIS, DEVICE_TP_AXIS))
+            customized_rules = (
+                (NAMED_BROADCAST_AXIS, None),
+                (NAMED_TP_AXIS, DEVICE_TP_AXIS),
+            )
             sharding_rules = te_flax.extend_logical_axis_rules(tuple()) + customized_rules
             params_sharding = get_params_sharding(sharding_rules, abs_var_collect, mesh)
             inputs_pspec = jax.sharding.PartitionSpec(DEVICE_DP_AXIS, None)
@@ -421,7 +433,13 @@ def train_and_evaluate(args):
             out_shardings = (state_sharding, None, None, None)
             jit_train_step = jax.jit(train_step, in_shardings, out_shardings)
 
-            in_shardings = (state_sharding, inputs_sharding, masks_sharding, labels_sharding, None)
+            in_shardings = (
+                state_sharding,
+                inputs_sharding,
+                masks_sharding,
+                labels_sharding,
+                None,
+            )
             out_shardings = (None, None)
             jit_eval_step = jax.jit(eval_step, in_shardings, out_shardings)
 

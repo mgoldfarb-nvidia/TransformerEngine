@@ -20,7 +20,9 @@ def is_package_installed(package):
     """Checks if a pip package is installed."""
     return (
         subprocess.run(
-            [sys.executable, "-m", "pip", "show", package], capture_output=True, check=False
+            [sys.executable, "-m", "pip", "show", package],
+            capture_output=True,
+            check=False,
         ).returncode
         == 0
     )

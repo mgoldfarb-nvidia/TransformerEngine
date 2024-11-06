@@ -6,7 +6,10 @@ import torch
 import pytest
 from typing import Dict, List
 
-from transformer_engine.pytorch import moe_permute as te_permute, moe_unpermute as te_unpermute
+from transformer_engine.pytorch import (
+    moe_permute as te_permute,
+    moe_unpermute as te_unpermute,
+)
 from transformer_engine.pytorch.utils import is_bf16_compatible
 from transformer_engine.pytorch.fp8 import FP8GlobalStateManager
 from transformer_engine.pytorch.float8_tensor import Float8Tensor
@@ -277,7 +280,10 @@ def _test_permutation(
     )
     if with_probs:
         torch.testing.assert_close(
-            probs.grad.float(), te_probs.grad.float(), msg=f"Mismatch in te_unpermute bwd", **tols
+            probs.grad.float(),
+            te_probs.grad.float(),
+            msg=f"Mismatch in te_unpermute bwd",
+            **tols,
         )
 
     if not pytorch_permute_fwd_input.numel():

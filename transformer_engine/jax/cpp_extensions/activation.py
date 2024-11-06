@@ -324,7 +324,9 @@ register_primitive(DActLuPrimitive)
 
 
 def dact_lu(
-    inputs: jnp.ndarray, act_lu_inputs: jnp.ndarray, activation_type: Sequence[Union[str, Callable]]
+    inputs: jnp.ndarray,
+    act_lu_inputs: jnp.ndarray,
+    activation_type: Sequence[Union[str, Callable]],
 ) -> jnp.ndarray:
     """
     dact_lu fusion wrapper
@@ -407,7 +409,12 @@ class ActLuFp8Primitive(BasePrimitive):
                 ir.RankedTensorType.get(ir_amax_shape, ir_amax_dtype),
             ]
             operands = [x, amax, scale, scale_inv]
-            operand_shapes = [ir_x_shape, ir_amax_shape, ir_scale_shape, ir_scale_inv_shape]
+            operand_shapes = [
+                ir_x_shape,
+                ir_amax_shape,
+                ir_scale_shape,
+                ir_scale_inv_shape,
+            ]
             args = CustomCallArgsWrapper(out_types, operands, operand_shapes)
 
             opaque = transformer_engine_jax.pack_common_descriptor(
@@ -418,7 +425,11 @@ class ActLuFp8Primitive(BasePrimitive):
             )
 
             out = custom_caller(
-                ActLuFp8Primitive.name, args, opaque, False, operand_output_aliases={1: 1}
+                ActLuFp8Primitive.name,
+                args,
+                opaque,
+                False,
+                operand_output_aliases={1: 1},
             )
 
         return out

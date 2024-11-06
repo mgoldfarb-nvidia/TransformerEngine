@@ -9,7 +9,11 @@ import paddle
 from paddle.distributed import fleet
 from paddle.distributed.fleet.layers.mpu import mp_ops
 
-from utils import assert_allclose, set_random_seed, register_sequence_parallel_allreduce_hooks
+from utils import (
+    assert_allclose,
+    set_random_seed,
+    register_sequence_parallel_allreduce_hooks,
+)
 import transformer_engine.paddle as te
 
 
@@ -142,7 +146,12 @@ class TestTransformerTp(unittest.TestCase):
             ), f"Shapes of src:{total_weight.shape} and dst:{weight_dst.shape} do not match."
             weight_dst.copy_(total_weight, True)
 
-        copy_weight(layer_tp, layer_single, None, ["self_attention", "layernorm_qkv", "ln_weight"])
+        copy_weight(
+            layer_tp,
+            layer_single,
+            None,
+            ["self_attention", "layernorm_qkv", "ln_weight"],
+        )
         copy_weight(
             layer_tp,
             layer_single,

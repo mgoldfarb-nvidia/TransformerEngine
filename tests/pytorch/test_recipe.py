@@ -291,7 +291,9 @@ class TestFP8Recipe:
     @pytest.mark.parametrize("amax_case", ["zero", "tiny", "normal", "inf", "nan"])
     @pytest.mark.parametrize("fused_update", [True, False], ids=["fused", "non-fused"])
     @pytest.mark.parametrize(
-        "fp8_dtype", [tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2], ids=["E4M3", "E5M2"]
+        "fp8_dtype",
+        [tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2],
+        ids=["E4M3", "E5M2"],
     )
     def test_scale_update_numeric_scenarios(self, amax_case, fused_update, fp8_dtype):
 
@@ -312,7 +314,8 @@ class TestFP8Recipe:
                 )
             )
         recipe = transformer_engine.common.recipe.DelayedScaling(
-            fp8_format=fp8_format, scaling_factor_compute_algo=scaling_factor_compute_algo
+            fp8_format=fp8_format,
+            scaling_factor_compute_algo=scaling_factor_compute_algo,
         )
 
         # Setup fp8_meta dictionary

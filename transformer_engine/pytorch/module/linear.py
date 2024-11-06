@@ -328,7 +328,7 @@ class _Linear(torch.autograd.Function):
                 inputmat_scale_inv,
                 weight,
                 weight_fp8,
-                weight.main_grad if cpu_offloading and fuse_wgrad_accumulation else None,
+                (weight.main_grad if cpu_offloading and fuse_wgrad_accumulation else None),
             )
 
             ctx.activation_dtype = activation_dtype
@@ -392,7 +392,7 @@ class _Linear(torch.autograd.Function):
                 ctx.fsdp_shapes,
                 inputmat,
                 inputmat_t,
-                weight_fp8 if ctx.fp8 and not isinstance(weight, Float8Tensor) else None,
+                (weight_fp8 if ctx.fp8 and not isinstance(weight, Float8Tensor) else None),
             )
 
             if ctx.cpu_offloading and ctx.fuse_wgrad_accumulation:
@@ -546,7 +546,7 @@ class _Linear(torch.autograd.Function):
                             ctx.activation_dtype,
                             get_workspace(),
                             accumulate=accumulate_wgrad_into_param_main_grad,
-                            out=weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                            out=(weight.main_grad if ctx.fuse_wgrad_accumulation else None),
                             use_split_accumulator=_2X_ACC_WGRAD,
                         )
                     else:
@@ -558,7 +558,7 @@ class _Linear(torch.autograd.Function):
                             layout="NT",
                             grad=True,
                             accumulate=accumulate_wgrad_into_param_main_grad,
-                            out=weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                            out=(weight.main_grad if ctx.fuse_wgrad_accumulation else None),
                         )
                 else:
                     # WGRAD
@@ -906,7 +906,11 @@ class Linear(TransformerEngineBaseModule):
             if self.use_bias:
                 for bias in self.bias_names:
                     if self.parallel_mode == "row":
-                        setattr(getattr(self, bias), "sequence_parallel", self.sequence_parallel)
+                        setattr(
+                            getattr(self, bias),
+                            "sequence_parallel",
+                            self.sequence_parallel,
+                        )
                     elif self.parallel_mode == "column":
                         set_tensor_model_parallel_attributes(getattr(self, bias), True, 0, 1)
 

@@ -29,7 +29,10 @@ from .misc import (
     is_ffi_enabled,
 )
 from .quantization import _jax_cast_fp8
-from ..sharding import all_reduce_max_along_all_axes_except_PP, all_reduce_sum_along_dp_fsdp
+from ..sharding import (
+    all_reduce_max_along_all_axes_except_PP,
+    all_reduce_sum_along_dp_fsdp,
+)
 
 
 __all__ = [
@@ -265,7 +268,9 @@ class LayerNormFwdPrimitive(BasePrimitive):
         arg_shardings = (x_sharding, g_sharding, b_sharding)
         out_shardings = (out_sharding, mu_sharding, rsigma_sharding)
         impl = partial(
-            LayerNormFwdPrimitive.impl, zero_centered_gamma=zero_centered_gamma, epsilon=epsilon
+            LayerNormFwdPrimitive.impl,
+            zero_centered_gamma=zero_centered_gamma,
+            epsilon=epsilon,
         )
         return mesh, impl, out_shardings, arg_shardings
 
@@ -311,7 +316,12 @@ def _jax_layernorm_fp8(x, gamma, beta, scale, amax, out_dtype, zero_centered_gam
         gamma += 1.0
     output = normed_input * gamma + beta
     casted_output, updated_amax = _jax_cast_fp8(output, scale, amax, out_dtype=out_dtype)
-    return casted_output, jnp.squeeze(mean, axis=-1), jnp.squeeze(rsigma, axis=-1), updated_amax
+    return (
+        casted_output,
+        jnp.squeeze(mean, axis=-1),
+        jnp.squeeze(rsigma, axis=-1),
+        updated_amax,
+    )
 
 
 def _jax_rmsnorm_fp8(x, gamma, scale, amax, out_dtype, zero_centered_gamma, eps):
@@ -330,7 +340,11 @@ def _jax_rmsnorm_fp8(x, gamma, scale, amax, out_dtype, zero_centered_gamma, eps)
 
 
 def layernorm_fwd(
-    x: jnp.ndarray, gamma: jnp.ndarray, beta: jnp.ndarray, zero_centered_gamma: bool, epsilon: float
+    x: jnp.ndarray,
+    gamma: jnp.ndarray,
+    beta: jnp.ndarray,
+    zero_centered_gamma: bool,
+    epsilon: float,
 ):
     """
     Wrapper for TE layernorm fwd
@@ -497,7 +511,13 @@ class LayerNormBwdPrimitive(BasePrimitive):
     def impl(dz, x, mu, rsigma, gamma, zero_centered_gamma, epsilon):
         assert LayerNormBwdPrimitive.inner_primitive is not None
         dx, dgamma, dbeta, _, _, _, _ = LayerNormBwdPrimitive.inner_primitive.bind(
-            dz, x, mu, rsigma, gamma, zero_centered_gamma=zero_centered_gamma, epsilon=epsilon
+            dz,
+            x,
+            mu,
+            rsigma,
+            gamma,
+            zero_centered_gamma=zero_centered_gamma,
+            epsilon=epsilon,
         )
         return dx, dgamma, dbeta
 
@@ -511,7 +531,13 @@ class LayerNormBwdPrimitive(BasePrimitive):
         out_bdims = x_bdim, gamma_bdim, gamma_bdim
         return (
             LayerNormBwdPrimitive.outer_primitive.bind(
-                dz, x, mu, rsigma, gamma, zero_centered_gamma=zero_centered_gamma, epsilon=epsilon
+                dz,
+                x,
+                mu,
+                rsigma,
+                gamma,
+                zero_centered_gamma=zero_centered_gamma,
+                epsilon=epsilon,
             ),
             out_bdims,
         )
@@ -561,11 +587,21 @@ class LayerNormBwdPrimitive(BasePrimitive):
         out_shardings = dx_sharding, dgamma_sharding, dbeta_sharding
         x_shardings = (dx_sharding,) * 2  # dz and x should have the same sharding.
         mu_shardings = (NamedSharding(mesh, PartitionSpec(*x_spec[:-1])),) * 2
-        arg_shardings = (*x_shardings, *mu_shardings, NamedSharding(mesh, PartitionSpec(None)))
+        arg_shardings = (
+            *x_shardings,
+            *mu_shardings,
+            NamedSharding(mesh, PartitionSpec(None)),
+        )
 
         def sharded_impl(dz, x, mu, rsigma, gamma):
             local_dx, local_dgamma, local_dbeta = LayerNormBwdPrimitive.impl(
-                dz, x, mu, rsigma, gamma, zero_centered_gamma=zero_centered_gamma, epsilon=epsilon
+                dz,
+                x,
+                mu,
+                rsigma,
+                gamma,
+                zero_centered_gamma=zero_centered_gamma,
+                epsilon=epsilon,
             )
             global_dgamma = all_reduce_sum_along_dp_fsdp(local_dgamma, mesh)
             global_dbeta = all_reduce_sum_along_dp_fsdp(local_dbeta, mesh)
@@ -599,7 +635,13 @@ def layernorm_bwd(
         )
         return vjp_func(dz)
     return LayerNormBwdPrimitive.outer_primitive.bind(
-        dz, x, mu, rsigma, gamma, zero_centered_gamma=zero_centered_gamma, epsilon=epsilon
+        dz,
+        x,
+        mu,
+        rsigma,
+        gamma,
+        zero_centered_gamma=zero_centered_gamma,
+        epsilon=epsilon,
     )
 
 
@@ -748,7 +790,10 @@ class RmsNormFwdPrimitive(BasePrimitive):
         x_bdim, _ = batch_dims
 
         out_bdims = x_bdim, x_bdim
-        return RmsNormFwdPrimitive.outer_primitive.bind(x, gamma, epsilon=epsilon), out_bdims
+        return (
+            RmsNormFwdPrimitive.outer_primitive.bind(x, gamma, epsilon=epsilon),
+            out_bdims,
+        )
 
     @staticmethod
     def infer_sharding_from_operands(epsilon, mesh, arg_infos, result_infos):
@@ -908,7 +953,8 @@ class RmsNormBwdPrimitive(BasePrimitive):
                     barrier_aval.shape, jax_dtype_to_ir_dtype(barrier_aval.dtype)
                 ),
                 ir.RankedTensorType.get(
-                    dgamma_part_aval.shape, jax_dtype_to_ir_dtype(dgamma_part_aval.dtype)
+                    dgamma_part_aval.shape,
+                    jax_dtype_to_ir_dtype(dgamma_part_aval.dtype),
                 ),
             ]
             operands = [dz, rsigma, x, gamma]
@@ -1001,7 +1047,11 @@ class RmsNormBwdPrimitive(BasePrimitive):
         out_shardings = dx_sharding, dgamma_sharding
         x_shardings = (dx_sharding,) * 2  # dz and x should have the same sharding.
         rsigma_sharding = NamedSharding(mesh, PartitionSpec(*x_spec[:-1]))
-        arg_shardings = (*x_shardings, rsigma_sharding, NamedSharding(mesh, PartitionSpec(None)))
+        arg_shardings = (
+            *x_shardings,
+            rsigma_sharding,
+            NamedSharding(mesh, PartitionSpec(None)),
+        )
 
         def sharded_impl(dz, x, rsigma, gamma):
             local_dx, local_dgamma = RmsNormBwdPrimitive.impl(dz, x, rsigma, gamma, epsilon=epsilon)
@@ -1015,7 +1065,11 @@ register_primitive(RmsNormBwdPrimitive)
 
 
 def rmsnorm_bwd(
-    dz: jnp.ndarray, x: jnp.ndarray, rsigma: jnp.ndarray, gamma: jnp.ndarray, epsilon: float
+    dz: jnp.ndarray,
+    x: jnp.ndarray,
+    rsigma: jnp.ndarray,
+    gamma: jnp.ndarray,
+    epsilon: float,
 ):
     """
     Wrapper for TE layernorm bwd
@@ -1088,7 +1142,14 @@ class LayerNormFwdFp8Primitive(BasePrimitive):
             shape=barrier_info[0], dtype=te_dtype_to_jax_dtype(barrier_info[1])
         )
 
-        return out_aval, mu_aval, rsigma_aval, updated_amax_aval, wkspace_aval, barrier_aval
+        return (
+            out_aval,
+            mu_aval,
+            rsigma_aval,
+            updated_amax_aval,
+            wkspace_aval,
+            barrier_aval,
+        )
 
     @staticmethod
     def outer_abstract(*args, **kwargs):
@@ -1102,7 +1163,17 @@ class LayerNormFwdFp8Primitive(BasePrimitive):
 
     @staticmethod
     def lowering(
-        ctx, x, gamma, beta, amax, scale, scale_inv, *, out_dtype, zero_centered_gamma, epsilon
+        ctx,
+        x,
+        gamma,
+        beta,
+        amax,
+        scale,
+        scale_inv,
+        *,
+        out_dtype,
+        zero_centered_gamma,
+        epsilon,
     ):
         """
         LayerNorm fwd (fp8 out) lowering rules
@@ -1204,7 +1275,11 @@ class LayerNormFwdFp8Primitive(BasePrimitive):
             )
 
             out = custom_caller(
-                LayerNormFwdFp8Primitive.name, args, opaque, False, operand_output_aliases={3: 3}
+                LayerNormFwdFp8Primitive.name,
+                args,
+                opaque,
+                False,
+                operand_output_aliases={3: 3},
             )
 
         return out
@@ -1490,7 +1565,13 @@ class RmsNormFwdFp8Primitive(BasePrimitive):
                 ),
             ]
             operands = [x, gamma, amax, scale, scale_inv]
-            operand_shapes = [x_shape, g_shape, ir_amax_shape, ir_scale_shape, ir_scale_inv_shape]
+            operand_shapes = [
+                x_shape,
+                g_shape,
+                ir_amax_shape,
+                ir_scale_shape,
+                ir_scale_inv_shape,
+            ]
             args = CustomCallArgsWrapper(out_types, operands, operand_shapes)
 
             sm_margin = get_forward_sm_margin()
@@ -1514,7 +1595,11 @@ class RmsNormFwdFp8Primitive(BasePrimitive):
             )
 
             out = custom_caller(
-                RmsNormFwdFp8Primitive.name, args, opaque, False, operand_output_aliases={2: 2}
+                RmsNormFwdFp8Primitive.name,
+                args,
+                opaque,
+                False,
+                operand_output_aliases={2: 2},
             )
 
         return out
@@ -1615,7 +1700,13 @@ def rmsnorm_fwd_fp8(
     """
     if not RmsNormFwdFp8Primitive.enabled():
         return _jax_rmsnorm_fp8(
-            x, gamma, scale, amax, out_dtype=out_dtype, zero_centered_gamma=False, eps=epsilon
+            x,
+            gamma,
+            scale,
+            amax,
+            out_dtype=out_dtype,
+            zero_centered_gamma=False,
+            eps=epsilon,
         )
     return RmsNormFwdFp8Primitive.outer_primitive.bind(
         x, gamma, amax, scale, scale_inv, out_dtype=out_dtype, epsilon=epsilon

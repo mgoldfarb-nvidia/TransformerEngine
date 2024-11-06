@@ -25,7 +25,12 @@ def generate_configs():
         TP_size = 2
         DP_size = 2
         configs.append(
-            [4, (DP_size, TP_size), ("dp", "tp"), MeshResource(dp_resource="dp", tp_resource="tp")]
+            [
+                4,
+                (DP_size, TP_size),
+                ("dp", "tp"),
+                MeshResource(dp_resource="dp", tp_resource="tp"),
+            ]
         )
 
     return configs

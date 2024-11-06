@@ -479,60 +479,70 @@ def _fused_layernorm_fp8_mlp_bwd_rule(
     if len(activation_type) > 1:  # if gated
         if use_bias:
             dactivation_lu = tex.dact_lu(dgrad_2, dot_1_output, activation_type)
-            casted_dactivation_lu, casted_dactivation_lu_t, dbias_1, updated_dactivation_lu_amax = (
-                tex.dbias_cast_transpose(
-                    dactivation_lu,
-                    dactivation_lu_amax,
-                    dactivation_lu_scale,
-                    dactivation_lu_scale_inv,
-                    bwd_dtype,
-                    static_axis_boundary=-1,
-                    transpose_axis_boundary=-2,
-                )
+            (
+                casted_dactivation_lu,
+                casted_dactivation_lu_t,
+                dbias_1,
+                updated_dactivation_lu_amax,
+            ) = tex.dbias_cast_transpose(
+                dactivation_lu,
+                dactivation_lu_amax,
+                dactivation_lu_scale,
+                dactivation_lu_scale_inv,
+                bwd_dtype,
+                static_axis_boundary=-1,
+                transpose_axis_boundary=-2,
             )
             dbias_1 = jnp.reshape(dbias_1, bias_1_shape)
         else:
-            casted_dactivation_lu, casted_dactivation_lu_t, updated_dactivation_lu_amax = (
-                tex.dgated_act_lu_cast_transpose(
-                    dgrad_2,
-                    dot_1_output,
-                    dactivation_lu_amax,
-                    dactivation_lu_scale,
-                    dactivation_lu_scale_inv,
-                    bwd_dtype,
-                    static_axis_boundary=-1,
-                    activation_type=activation_type,
-                )
+            (
+                casted_dactivation_lu,
+                casted_dactivation_lu_t,
+                updated_dactivation_lu_amax,
+            ) = tex.dgated_act_lu_cast_transpose(
+                dgrad_2,
+                dot_1_output,
+                dactivation_lu_amax,
+                dactivation_lu_scale,
+                dactivation_lu_scale_inv,
+                bwd_dtype,
+                static_axis_boundary=-1,
+                activation_type=activation_type,
             )
             dbias_1 = None
     else:
         if use_bias:
-            casted_dactivation_lu, casted_dactivation_lu_t, dbias_1, updated_dactivation_lu_amax = (
-                tex.dact_lu_dbias_cast_transpose(
-                    dgrad_2,
-                    dot_1_output,
-                    dactivation_lu_amax,
-                    dactivation_lu_scale,
-                    dactivation_lu_scale_inv,
-                    bwd_dtype,
-                    static_axis_boundary=-1,
-                    transpose_axis_boundary=-2,
-                    activation_type=activation_type,
-                )
+            (
+                casted_dactivation_lu,
+                casted_dactivation_lu_t,
+                dbias_1,
+                updated_dactivation_lu_amax,
+            ) = tex.dact_lu_dbias_cast_transpose(
+                dgrad_2,
+                dot_1_output,
+                dactivation_lu_amax,
+                dactivation_lu_scale,
+                dactivation_lu_scale_inv,
+                bwd_dtype,
+                static_axis_boundary=-1,
+                transpose_axis_boundary=-2,
+                activation_type=activation_type,
             )
             dbias_1 = jnp.reshape(dbias_1, bias_1_shape)
         else:
             dactivation_lu = tex.dact_lu(dgrad_2, dot_1_output, activation_type)
-            casted_dactivation_lu, casted_dactivation_lu_t, updated_dactivation_lu_amax = (
-                tex.cast_transpose(
-                    dactivation_lu,
-                    dactivation_lu_amax,
-                    dactivation_lu_scale,
-                    dactivation_lu_scale_inv,
-                    bwd_dtype,
-                    static_axis_boundary=-1,
-                    transpose_axis_boundary=-2,
-                )
+            (
+                casted_dactivation_lu,
+                casted_dactivation_lu_t,
+                updated_dactivation_lu_amax,
+            ) = tex.cast_transpose(
+                dactivation_lu,
+                dactivation_lu_amax,
+                dactivation_lu_scale,
+                dactivation_lu_scale_inv,
+                bwd_dtype,
+                static_axis_boundary=-1,
+                transpose_axis_boundary=-2,
             )
             dbias_1 = None
 

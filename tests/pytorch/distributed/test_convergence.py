@@ -62,7 +62,13 @@ def get_parallel_configs() -> List[Tuple[int, int]]:
 
 
 def get_filename(
-    model: str, dp: int, tp: int, pp: int, sp: bool, use_te: bool, fp8_recipe: Union[bool, str]
+    model: str,
+    dp: int,
+    tp: int,
+    pp: int,
+    sp: bool,
+    use_te: bool,
+    fp8_recipe: Union[bool, str],
 ) -> str:
     sp = tp if sp else 1
     config = f"gpt3_{model}_dp{dp}_tp{tp}_pp{pp}_sp{sp}"

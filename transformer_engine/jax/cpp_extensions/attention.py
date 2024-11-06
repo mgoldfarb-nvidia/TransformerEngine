@@ -160,7 +160,14 @@ class FusedAttnHelper:
         assert q_head_dim == kv_head_dim
         assert q_aval.dtype == k_aval.dtype == v_aval.dtype
 
-        return (q_batch_shape, q_max_seqlen, kv_max_seqlen, attn_heads, num_gqa_groups, q_head_dim)
+        return (
+            q_batch_shape,
+            q_max_seqlen,
+            kv_max_seqlen,
+            attn_heads,
+            num_gqa_groups,
+            q_head_dim,
+        )
 
 
 @dataclass(frozen=True)
@@ -250,9 +257,14 @@ class FusedAttnFwdPrimitive(BasePrimitive):
         assert q_dtype == k_dtype == v_dtype == bias_dtype
         assert q_seqlen_or_cu_seqlen_aval.dtype == kv_seqlen_or_cu_seqlen_aval.dtype
 
-        batch_shape, q_max_seqlen, kv_max_seqlen, attn_heads, num_gqa_groups, head_dim = (
-            FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
-        )
+        (
+            batch_shape,
+            q_max_seqlen,
+            kv_max_seqlen,
+            attn_heads,
+            num_gqa_groups,
+            head_dim,
+        ) = FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
 
         output_shape = (*batch_shape, q_max_seqlen, attn_heads, head_dim)
         out_aval = q_aval.update(shape=output_shape, dtype=q_dtype)
@@ -365,9 +377,14 @@ class FusedAttnFwdPrimitive(BasePrimitive):
         """
         q_aval, k_aval, v_aval, bias_aval, *_ = ctx.avals_in
 
-        batch_shape, q_max_seqlen, kv_max_seqlen, attn_heads, num_gqa_groups, head_dim = (
-            FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
-        )
+        (
+            batch_shape,
+            q_max_seqlen,
+            kv_max_seqlen,
+            attn_heads,
+            num_gqa_groups,
+            head_dim,
+        ) = FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
 
         input_batch = reduce(operator.mul, batch_shape)
 
@@ -648,9 +665,14 @@ class FusedAttnBwdPrimitive(BasePrimitive):
         assert q_dtype == k_dtype == v_dtype == bias_dtype == doutput_dtype
         assert q_seqlen_or_cu_seqlen_aval.dtype == kv_seqlen_or_cu_seqlen_aval.dtype
 
-        batch_shape, q_max_seqlen, kv_max_seqlen, attn_heads, num_gqa_groups, head_dim = (
-            FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
-        )
+        (
+            batch_shape,
+            q_max_seqlen,
+            kv_max_seqlen,
+            attn_heads,
+            num_gqa_groups,
+            head_dim,
+        ) = FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
 
         if config.attn_bias_type == NVTE_Bias_Type.NVTE_NO_BIAS:
             bias_batch = bias_heads = 0
@@ -746,9 +768,14 @@ class FusedAttnBwdPrimitive(BasePrimitive):
 
         q_aval, k_aval, v_aval, bias_aval, *_ = ctx.avals_in
 
-        batch_shape, q_max_seqlen, kv_max_seqlen, attn_heads, num_gqa_groups, head_dim = (
-            FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
-        )
+        (
+            batch_shape,
+            q_max_seqlen,
+            kv_max_seqlen,
+            attn_heads,
+            num_gqa_groups,
+            head_dim,
+        ) = FusedAttnHelper.parse_qkv_aval(q_aval, k_aval, v_aval, config.qkv_layout)
 
         input_batch = reduce(operator.mul, batch_shape)
 
@@ -1028,7 +1055,10 @@ class _FusedAttnCPWithAllGatherHelper:
         """Checks if the context parallel implementation is supported by the given arguments."""
         header = "Context parallel fused attention"
 
-        allowed_layouts = [NVTE_QKV_Layout.NVTE_BSHD_BS2HD, NVTE_QKV_Layout.NVTE_BSHD_BSHD_BSHD]
+        allowed_layouts = [
+            NVTE_QKV_Layout.NVTE_BSHD_BS2HD,
+            NVTE_QKV_Layout.NVTE_BSHD_BSHD_BSHD,
+        ]
         if self.config.qkv_layout not in allowed_layouts:
             raise ValueError(
                 f"{header} only supports layouts:"
@@ -1080,7 +1110,12 @@ class _FusedAttnCPWithAllGatherHelper:
 
         def ag(x):
             x = lax_paral_op(
-                x, lax.all_gather, self.config.cp_axis, mesh=self.mesh, axis=1, tiled=True
+                x,
+                lax.all_gather,
+                self.config.cp_axis,
+                mesh=self.mesh,
+                axis=1,
+                tiled=True,
             )
             if self.config.context_parallel_load_balanced:
                 cp_size = get_mesh_axis_size(self.config.cp_axis, self.mesh)
@@ -1155,11 +1190,12 @@ class _FusedAttnCPWithAllGatherHelper:
     def stack_kv(self, k, v):
         match self.config.qkv_layout:
             case NVTE_QKV_Layout.NVTE_BSHD_BSHD_BSHD:
-                return lax.stack(k, v, axis=2)
+                return jnp.stack([k, v], axis=2)
         return k, v
 
     def unstack_kv(self, kv):
-        return lax.unstack(kv, axis=2)
+        return jnp.unstack(kv, axis=2)
+
 
 class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
     """
@@ -1224,7 +1260,7 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
                     output, softmax_aux, rng_state = FusedAttnFwdPrimitive.impl(
                         q_split[sub_idx],
                         kv_unmasked,
-                        jnp.zeros(0, dtype=kv.dtype), # unused
+                        jnp.zeros(0, dtype=kv.dtype),  # unused
                         bias,
                         q_seqlen_for_step,
                         kv_seqlen_for_step,
@@ -1245,7 +1281,7 @@ class FusedAttnCPWithAllGatherFwdPrimitive(FusedAttnFwdPrimitive):
             kv_ag = helper.all_gather_kv(kv)
 
             functions = [
-                partial(_cross_attn, idx, q, kv_ag, jnp.zeros(0, dtype=kv.dtype), bias, q_seqlen, kv_seqlen, seed)
+                partial(_cross_attn, idx, q, kv_ag, bias, q_seqlen, kv_seqlen, seed)
                 for idx in range(cp_size)
             ]
 
@@ -1310,7 +1346,16 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
 
             # See comment in FusedAttnCPFwdPrimitive.partition for why we define this function.
             def _cross_attn_bwd(
-                idx, q, kv, bias, softmax_aux, rng_state, output, doutput, q_seqlen, kv_seqlen
+                idx,
+                q,
+                kv,
+                bias,
+                softmax_aux,
+                rng_state,
+                output,
+                doutput,
+                q_seqlen,
+                kv_seqlen,
             ):
                 kv_max_seqlen = kv.shape[1]
                 kv_seqlen_per_subrank = kv_max_seqlen // (cp_size * 2)
@@ -1339,7 +1384,7 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                     dq_local, dkdv_local, _, dbias_local = FusedAttnBwdPrimitive.impl(
                         q_split[sub_idx],
                         kv_unmasked,
-                        jnp.zeros(0, dtype=kv_unmasked.dtype), # unused
+                        jnp.zeros(0, dtype=kv_unmasked.dtype),  # unused
                         bias,
                         softmax_aux_split[sub_idx],
                         rng_state,
@@ -1361,7 +1406,7 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
 
                 dq_local = jnp.concatenate((results[0][0], results[1][0]), axis=1)
                 dkdv_local_pad = results[0][1] + results[1][1]
-                return dq_local, dkdv_local_pad, results[1][3]
+                return dq_local, dkdv_local_pad, results[1][2]
 
             kv = helper.stack_kv(k, v)
             kv_ag = helper.all_gather_kv(kv)
@@ -1372,7 +1417,6 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
                     idx,
                     q,
                     kv_ag,
-                    jnp.zeros(0, dtype=kv_ag.dtype), # not used
                     bias,
                     softmax_aux,
                     rng_state,
@@ -1385,7 +1429,8 @@ class FusedAttnCPWithAllGatherBwdPrimitive(FusedAttnBwdPrimitive):
             ]
 
             dq, dkdv_local, dbias = lax.switch(cp_rank, functions)
-            dk, dv = helper.reduce_scatter_dkv(dkdv_local)
+            dkdv = helper.reduce_scatter_dkv(dkdv_local)
+            dk, dv = helper.unstack_kv(dkdv)
 
             return dq, dk, dv, dbias
 

@@ -9,7 +9,12 @@ from typing import Callable, Iterable, Sequence, Tuple, Union
 
 from praxis import pax_fiddle
 from praxis.base_layer import init_var
-from praxis.base_layer import BaseLayer, WeightInit, WeightHParams, WeightHParamsCollection
+from praxis.base_layer import (
+    BaseLayer,
+    WeightInit,
+    WeightHParams,
+    WeightHParamsCollection,
+)
 from praxis.layers import flax_adapter
 from praxis.pytypes import JTensor
 

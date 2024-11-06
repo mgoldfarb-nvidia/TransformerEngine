@@ -31,7 +31,10 @@ from .misc import (
 from .activation import ActivationEnum
 from .activation import _jax_act_lu
 from .quantization import _jax_cast_fp8
-from ..sharding import all_reduce_max_along_all_axes_except_PP, all_reduce_sum_along_dp_fsdp
+from ..sharding import (
+    all_reduce_max_along_all_axes_except_PP,
+    all_reduce_sum_along_dp_fsdp,
+)
 
 
 __all__ = [
@@ -164,7 +167,9 @@ class TransposePrimitive(BasePrimitive):
         out_bdims = x_bdim
         return (
             TransposePrimitive.outer_primitive.bind(
-                x, static_axis_boundary=x_bdim, transpose_axis_boundary=transpose_axis_boundary
+                x,
+                static_axis_boundary=x_bdim,
+                transpose_axis_boundary=transpose_axis_boundary,
             ),
             out_bdims,
         )
@@ -296,7 +301,12 @@ class CastTransposePrimitive(BasePrimitive):
                 ir.RankedTensorType.get(ir_amax_shape, ir_amax_dtype),
             ]
             operands = [x, amax, scale, scale_inv]
-            operand_shapes = [ir_x_shape, ir_amax_shape, ir_scale_shape, ir_scale_inv_shape]
+            operand_shapes = [
+                ir_x_shape,
+                ir_amax_shape,
+                ir_scale_shape,
+                ir_scale_inv_shape,
+            ]
             args = CustomCallArgsWrapper(out_types, operands, operand_shapes)
 
             contracted_x_shape = (
@@ -309,12 +319,24 @@ class CastTransposePrimitive(BasePrimitive):
                 jax_dtype_to_te_dtype(out_dtype),
             )
             out = custom_caller(
-                CastTransposePrimitive.name, args, opaque, False, operand_output_aliases={1: 2}
+                CastTransposePrimitive.name,
+                args,
+                opaque,
+                False,
+                operand_output_aliases={1: 2},
             )
         return out
 
     @staticmethod
-    def impl(x, amax, scale, scale_inv, out_dtype, static_axis_boundary, transpose_axis_boundary):
+    def impl(
+        x,
+        amax,
+        scale,
+        scale_inv,
+        out_dtype,
+        static_axis_boundary,
+        transpose_axis_boundary,
+    ):
         """
         te_cast_transpose implementation
         """
@@ -361,7 +383,12 @@ class CastTransposePrimitive(BasePrimitive):
 
     @staticmethod
     def infer_sharding_from_operands(
-        out_dtype, static_axis_boundary, transpose_axis_boundary, mesh, arg_infos, result_infos
+        out_dtype,
+        static_axis_boundary,
+        transpose_axis_boundary,
+        mesh,
+        arg_infos,
+        result_infos,
     ):
         del out_dtype, result_infos
         x_spec = get_padded_spec(arg_infos[0])
@@ -373,7 +400,12 @@ class CastTransposePrimitive(BasePrimitive):
 
     @staticmethod
     def partition(
-        out_dtype, static_axis_boundary, transpose_axis_boundary, mesh, arg_infos, result_infos
+        out_dtype,
+        static_axis_boundary,
+        transpose_axis_boundary,
+        mesh,
+        arg_infos,
+        result_infos,
     ):
         del result_infos
         x_spec = get_padded_spec(arg_infos[0])
@@ -538,7 +570,12 @@ class DBiasCastTransposePrimitive(BasePrimitive):
             ir.RankedTensorType.get(wkspace_aval.shape, jax_dtype_to_ir_dtype(wkspace_aval.dtype)),
         ]
         operands = [dz, amax, scale, scale_inv]
-        operand_shapes = [ir_dz_shape, ir_amax_shape, ir_scale_shape, ir_scale_inv_shape]
+        operand_shapes = [
+            ir_dz_shape,
+            ir_amax_shape,
+            ir_scale_shape,
+            ir_scale_inv_shape,
+        ]
         args = CustomCallArgsWrapper(out_types, operands, operand_shapes)
         opaque = transformer_engine_jax.pack_common_wk_descriptor(
             contracted_dz_shape,
@@ -549,13 +586,25 @@ class DBiasCastTransposePrimitive(BasePrimitive):
         )
 
         out = custom_caller(
-            DBiasCastTransposePrimitive.name, args, opaque, False, operand_output_aliases={1: 3}
+            DBiasCastTransposePrimitive.name,
+            args,
+            opaque,
+            False,
+            operand_output_aliases={1: 3},
         )
 
         return out
 
     @staticmethod
-    def impl(dz, amax, scale, scale_inv, out_dtype, static_axis_boundary, transpose_axis_boundary):
+    def impl(
+        dz,
+        amax,
+        scale,
+        scale_inv,
+        out_dtype,
+        static_axis_boundary,
+        transpose_axis_boundary,
+    ):
         """
         to describe implementation
         """
@@ -604,7 +653,12 @@ class DBiasCastTransposePrimitive(BasePrimitive):
 
     @staticmethod
     def infer_sharding_from_operands(
-        out_dtype, static_axis_boundary, transpose_axis_boundary, mesh, arg_infos, result_infos
+        out_dtype,
+        static_axis_boundary,
+        transpose_axis_boundary,
+        mesh,
+        arg_infos,
+        result_infos,
     ):
         del out_dtype, result_infos
         x_spec = get_padded_spec(arg_infos[0])
@@ -619,7 +673,12 @@ class DBiasCastTransposePrimitive(BasePrimitive):
 
     @staticmethod
     def partition(
-        out_dtype, static_axis_boundary, transpose_axis_boundary, mesh, arg_infos, result_infos
+        out_dtype,
+        static_axis_boundary,
+        transpose_axis_boundary,
+        mesh,
+        arg_infos,
+        result_infos,
     ):
         del result_infos
         x_spec = get_padded_spec(arg_infos[0])
@@ -832,7 +891,13 @@ class DActLuDBiasCastTransposePrimitive(BasePrimitive):
             ir.RankedTensorType.get(wkspace_aval.shape, jax_dtype_to_ir_dtype(wkspace_aval.dtype)),
         ]
         operands = [dz, x, amax, scale, scale_inv]
-        operand_shapes = [ir_dz_shape, x_shape, ir_amax_shape, ir_scale_shape, ir_scale_inv_shape]
+        operand_shapes = [
+            ir_dz_shape,
+            x_shape,
+            ir_amax_shape,
+            ir_scale_shape,
+            ir_scale_inv_shape,
+        ]
         args = CustomCallArgsWrapper(out_types, operands, operand_shapes)
         opaque = transformer_engine_jax.pack_common_wk_descriptor(
             contracted_x_shape,
@@ -1130,7 +1195,13 @@ class DgatedActLuCastTransposePrimitive(BasePrimitive):
             ir.RankedTensorType.get(ir_amax_shape, ir_amax_dtype),
         ]
         operands = [dz, x, amax, scale, scale_inv]
-        operand_shapes = [ir_dz_shape, x_shape, ir_amax_shape, ir_scale_shape, ir_scale_inv_shape]
+        operand_shapes = [
+            ir_dz_shape,
+            x_shape,
+            ir_amax_shape,
+            ir_scale_shape,
+            ir_scale_inv_shape,
+        ]
         args = CustomCallArgsWrapper(out_types, operands, operand_shapes)
         contracted_x_shape = (x_batch_size, x_shape[-1])
         opaque = transformer_engine_jax.pack_common_descriptor(

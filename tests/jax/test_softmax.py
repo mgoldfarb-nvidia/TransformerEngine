@@ -79,7 +79,12 @@ class SoftmaxRunner:
         key = jax.random.PRNGKey(0)
         logits_key, mask_key = jax.random.split(key, 2)
 
-        logits_shape = (self.batch_size, self.num_heads, self.max_seqlen_q, self.max_seqlen_kv)
+        logits_shape = (
+            self.batch_size,
+            self.num_heads,
+            self.max_seqlen_q,
+            self.max_seqlen_kv,
+        )
         mask_shape = (self.batch_size, 1, self.max_seqlen_q, self.max_seqlen_kv)
 
         self.logits = jax.random.uniform(logits_key, logits_shape, self.dtype, -1.0)
